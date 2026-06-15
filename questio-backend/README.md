@@ -53,7 +53,7 @@ Crie um arquivo `.env` no diretório do backend a partir de `.env.example` e pre
 
 - banco
 - JWT
-- SMTP
+- Brevo API
 - URL do frontend
 - CORS permitido
 
@@ -92,10 +92,9 @@ O projeto ja possui `render.yaml` na raiz do repositório com a configuracao ini
 - `APP_PASSWORD_RESET_URL`
 - `APP_CORS_ALLOWED_ORIGINS`
 - `APP_MAIL_FROM`
-- `SPRING_MAIL_HOST`
-- `SPRING_MAIL_PORT`
-- `SPRING_MAIL_USERNAME`
-- `SPRING_MAIL_PASSWORD`
+- `APP_MAIL_FROM_NAME`
+- `BREVO_API_KEY`
+- `BREVO_API_BASE_URL` (opcional, padrão `https://api.brevo.com/v3`)
 
 ### Observação importante para o app mobile
 
@@ -109,7 +108,8 @@ APP_PASSWORD_RESET_URL=questio-app://screens/(Authenticator)/ResetPassWord
 
 - `API_SECURITY_TOKEN_SECRET` deve ser um segredo forte em Base64
 - `APP_CORS_ALLOWED_ORIGINS` deve conter apenas os domínios reais do frontend
-- `APP_MAIL_FROM` deve ser compatível com a conta SMTP usada
+- `APP_MAIL_FROM` deve ser um remetente válido/verificado no Brevo
+- `BREVO_API_KEY` deve ser uma chave de API transacional válida
 - Swagger fica desabilitado em `prod`
 - O backend expõe health/info via actuator
 

@@ -47,7 +47,12 @@
       "@react-native-community/datetimepicker"
     ],
     "extra": {
-      "appEnv": "production"
-    }
+      "appEnv": "production",
+      "router": {},
+      "eas": {
+        "projectId": "a7e7aa86-73e8-44ec-8ecf-3cac5721e62b"
+      }
+    },
+    "owner": "lumenvita"
   }
 }

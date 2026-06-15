@@ -53,7 +53,7 @@ O backend usa variáveis com fallback (veja `src/main/resources/application.prop
 - `SPRING_DATASOURCE_PASSWORD` (ex.: `root`)
 - `API_SECURITY_TOKEN_SECRET` (obrigatório em produção; em dev há fallback não-secreto)
 - `APP_FRONTEND_URL` (ex.: `http://localhost:8082`)
-- `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`
+- `APP_MAIL_FROM`, `APP_MAIL_FROM_NAME`, `BREVO_API_KEY`
 
 ## Subindo o Frontend (Expo)
 
@@ -167,10 +167,8 @@ npm run typecheck
 - `APP_FRONTEND_URL`
 - `APP_CORS_ALLOWED_ORIGINS`
 - `APP_MAIL_FROM`
-- `SPRING_MAIL_HOST`
-- `SPRING_MAIL_PORT`
-- `SPRING_MAIL_USERNAME`
-- `SPRING_MAIL_PASSWORD`
+- `APP_MAIL_FROM_NAME`
+- `BREVO_API_KEY`
 
 ### Observações de produção
 
@@ -178,6 +176,7 @@ npm run typecheck
 - Swagger fica desabilitado em produção.
 - O link de reset mobile pode usar `questio-app://screens/(Authenticator)/ResetPassWord`.
 - A URL pública do backend deve ser refletida em `EXPO_PUBLIC_API_URL` no app.
+- O envio de e-mails em produção usa a API HTTP do Brevo, evitando dependência de SMTP no Render.
 
 ## Build do APK / Android App Bundle
 

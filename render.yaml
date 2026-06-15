@@ -19,6 +19,8 @@ services:
         sync: false
       - key: APP_MAIL_FROM
         sync: false
+      - key: APP_MAIL_FROM_NAME
+        value: Questio
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: SPRING_DATASOURCE_USERNAME
@@ -27,19 +29,9 @@ services:
         sync: false
       - key: API_SECURITY_TOKEN_SECRET
         generateValue: true
-      - key: SPRING_MAIL_HOST
+      - key: BREVO_API_BASE_URL
+        value: https://api.brevo.com/v3
+      - key: BREVO_API_KEY
         sync: false
-      - key: SPRING_MAIL_PORT
-        value: "587"
-      - key: SPRING_MAIL_USERNAME
-        sync: false
-      - key: SPRING_MAIL_PASSWORD
-        sync: false
-      - key: SPRING_MAIL_CONNECTION_TIMEOUT
-        value: "5000"
-      - key: SPRING_MAIL_TIMEOUT
-        value: "5000"
-      - key: SPRING_MAIL_WRITE_TIMEOUT
-        value: "5000"
       - key: QUESTIO_SCHEDULING_RESET_STREAK_ENABLED
         value: "true"

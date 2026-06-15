@@ -1,16 +1,14 @@
 services:
   - type: web
     name: questio-backend
-    runtime: java
+    runtime: docker
     rootDir: questio-backend - Copia
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -Dspring.profiles.active=prod -jar target/questio-backend-0.0.1-SNAPSHOT.jar
+    dockerfilePath: questio-backend - Copia/Dockerfile
+    dockerContext: questio-backend - Copia
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: PORT
-        value: 8080
       - key: API_SECURITY_TOKEN_EXPIRATION_MS
         value: 7200000
       - key: APP_FRONTEND_URL

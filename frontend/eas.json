@@ -20,7 +20,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://questio-backend.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://questio-app.onrender.com/api"
       }
     },
     "production-apk": {
@@ -29,7 +29,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://questio-backend.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://questio-app.onrender.com/api"
       }
     },
     "production": {
@@ -37,7 +37,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://questio-backend.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://questio-app.onrender.com/api"
       }
     }
   },

@@ -9,7 +9,7 @@ const getDefaultApiUrl = () => {
       : "http://localhost:8080/api";
   }
 
-  return "https://questio-backend.onrender.com/api";
+  return "https://questio-app.onrender.com/api";
 };
 
 export const API_URL =

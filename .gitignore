@@ -1,0 +1,22 @@
+# Pastas do Windows e Cache
+AppData/
+node_modules/
+dist/
+build/
+.expo/
+.next/
+.DS_Store
+Thumbs.db
+*.log
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Pastas de IDE
+.vscode/
+.idea/
+
+# Binários
+*.exe
+*.dll

@@ -57,13 +57,11 @@ export default function CriarTurma() {
   async function carregarProfessoresETurmas() {
     setLoadingProfessores(true);
     setLoadingTurmas(true);
-    setLoadingAlunos(true);
 
     try {
-      const [resProfessores, resTurmas, resAlunos] = await Promise.all([
+      const [resProfessores, resTurmas] = await Promise.all([
         api.get<Professor[]>("/user/professores"),
         api.get<ClassResponseDTO[]>("/coordenacao/turmas"),
-        api.get<Aluno[]>("/user/alunos"),
       ]);
 
       const professoresOrdenados = resProfessores.data ?? [];
@@ -87,20 +85,37 @@ export default function CriarTurma() {
         }
         return turmas[0] ?? null;
       });
-
-      setAlunos(resAlunos.data ?? []);
     } catch (error: any) {
       console.log(
-        "Erro ao carregar professores, turmas e alunos:",
+        "Erro ao carregar professores e turmas:",
         error?.response?.data || error,
       );
       Alert.alert(
         "Erro",
-        "Não foi possível carregar os dados de coordenação.",
+        "Não foi possível carregar os professores e turmas cadastradas.",
       );
     } finally {
       setLoadingProfessores(false);
       setLoadingTurmas(false);
+    }
+  }
+
+  async function carregarAlunos() {
+    try {
+      setLoadingAlunos(true);
+      const resAlunos = await api.get<Aluno[]>("/user/alunos");
+      setAlunos(resAlunos.data ?? []);
+      return resAlunos.data ?? [];
+    } catch (error: any) {
+      console.log("Erro ao carregar alunos:", error?.response?.data || error);
+      Alert.alert(
+        "Erro",
+        error?.response?.status === 403
+          ? "Seu usuário não tem permissão para listar alunos."
+          : "Não foi possível carregar os alunos para matrícula.",
+      );
+      return [];
+    } finally {
       setLoadingAlunos(false);
     }
   }
@@ -243,6 +258,17 @@ export default function CriarTurma() {
     } finally {
       setLoadingMatricula(false);
     }
+  }
+
+  async function abrirModalAlunos() {
+    if (alunos.length === 0 && !loadingAlunos) {
+      const alunosCarregados = await carregarAlunos();
+      if (alunosCarregados.length === 0) {
+        return;
+      }
+    }
+
+    setShowAlunoModal(true);
   }
 
   async function excluirTurma(idTurma: string, nomeTurma: string) {
@@ -415,13 +441,12 @@ export default function CriarTurma() {
           <TouchableOpacity
             style={styles.select}
             activeOpacity={0.8}
-            onPress={() => setShowAlunoModal(true)}
-            disabled={alunos.length === 0}
+            onPress={abrirModalAlunos}
           >
             <Text style={styles.selectValue}>
               {alunosSelecionados.length > 0
                 ? `${alunosSelecionados.length} aluno(s) selecionado(s)`
-                : "Selecionar alunos"}
+                : "Selecionar alunos da turma"}
             </Text>
             <Feather name="users" size={16} color="#7c8db5" />
           </TouchableOpacity>

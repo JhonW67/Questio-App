@@ -1,1 +1,1 @@
-ALTER TABLE usuarios ADD COLUMN maior_streak integer NOT NULL DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS maior_streak integer NOT NULL DEFAULT 0;

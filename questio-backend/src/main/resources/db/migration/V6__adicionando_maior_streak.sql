@@ -1,0 +1,1 @@
+ALTER TABLE usuarios ADD COLUMN maior_streak integer NOT NULL DEFAULT 0;

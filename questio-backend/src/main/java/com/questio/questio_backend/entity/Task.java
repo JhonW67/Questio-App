@@ -1,0 +1,47 @@
+package com.questio.questio_backend.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "tarefas")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Task {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id_tarefa")
+    private UUID idTask;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_turma", nullable = false)
+    private Class turma;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_professor")
+    private User professor;
+
+    @Column(nullable = false, length = 150)
+    private String titulo;
+
+    @Column(columnDefinition = "text")
+    private String descricao;
+
+    private LocalDateTime prazo;
+
+    private Integer pontos;
+
+    @Builder.Default
+    private String status = "Pendente";
+
+    @Builder.Default
+    @Column(name = "criado_em", updatable = false)
+    private LocalDateTime criadoEm = LocalDateTime.now();
+}

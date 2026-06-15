@@ -111,6 +111,30 @@ export const styles = StyleSheet.create({
     color: "#7c8db5",
     fontSize: 14,
   },
+  selectedSummary: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  selectedChip: {
+    backgroundColor: "#0d2040",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#16C7E7",
+  },
+  selectedChipText: {
+    color: "#E6F7FF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  moreSelectedText: {
+    color: "#A8B3CF",
+    fontSize: 12,
+    alignSelf: "center",
+  },
 
   usuarioSelecionadoContainer: {
     marginTop: 10,

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -15,6 +16,12 @@ import api from "../../../../services/api";
 import { useAuth } from "../../../../context/AuthContext";
 
 interface Professor {
+  idUsuario: string;
+  nome: string;
+  email: string;
+}
+
+interface Aluno {
   idUsuario: string;
   nome: string;
   email: string;
@@ -36,17 +43,27 @@ export default function CriarTurma() {
     useState<Professor | null>(null);
   const [loadingProfessores, setLoadingProfessores] = useState(false);
   const [loadingTurmas, setLoadingTurmas] = useState(false);
+  const [loadingAlunos, setLoadingAlunos] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMatricula, setLoadingMatricula] = useState(false);
   const [turmasCriadas, setTurmasCriadas] = useState<ClassResponseDTO[]>([]);
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [turmaSelecionadaMatricula, setTurmaSelecionadaMatricula] =
+    useState<ClassResponseDTO | null>(null);
+  const [alunosSelecionados, setAlunosSelecionados] = useState<Aluno[]>([]);
+  const [buscaAluno, setBuscaAluno] = useState("");
+  const [showAlunoModal, setShowAlunoModal] = useState(false);
 
   async function carregarProfessoresETurmas() {
     setLoadingProfessores(true);
     setLoadingTurmas(true);
+    setLoadingAlunos(true);
 
     try {
-      const [resProfessores, resTurmas] = await Promise.all([
+      const [resProfessores, resTurmas, resAlunos] = await Promise.all([
         api.get<Professor[]>("/user/professores"),
         api.get<ClassResponseDTO[]>("/coordenacao/turmas"),
+        api.get<Aluno[]>("/user/alunos"),
       ]);
 
       const professoresOrdenados = resProfessores.data ?? [];
@@ -62,19 +79,29 @@ export default function CriarTurma() {
         return professoresOrdenados[0] ?? null;
       });
 
-      setTurmasCriadas(resTurmas.data ?? []);
+      const turmas = resTurmas.data ?? [];
+      setTurmasCriadas(turmas);
+      setTurmaSelecionadaMatricula((atual) => {
+        if (atual) {
+          return turmas.find((turma) => turma.idTurma === atual.idTurma) ?? null;
+        }
+        return turmas[0] ?? null;
+      });
+
+      setAlunos(resAlunos.data ?? []);
     } catch (error: any) {
       console.log(
-        "Erro ao carregar professores e turmas:",
+        "Erro ao carregar professores, turmas e alunos:",
         error?.response?.data || error,
       );
       Alert.alert(
         "Erro",
-        "Não foi possível carregar os professores e turmas cadastrados.",
+        "Não foi possível carregar os dados de coordenação.",
       );
     } finally {
       setLoadingProfessores(false);
       setLoadingTurmas(false);
+      setLoadingAlunos(false);
     }
   }
 
@@ -132,6 +159,7 @@ export default function CriarTurma() {
       );
 
       setTurmasCriadas((prev) => [resposta.data, ...prev]);
+      setTurmaSelecionadaMatricula(resposta.data);
       Alert.alert(
         "Sucesso",
         `Turma "${resposta.data.nome}" criada com sucesso pelo Coordenador!`,
@@ -151,11 +179,80 @@ export default function CriarTurma() {
     }
   }
 
+  function handleSelecionarTurmaMatricula() {
+    if (loadingTurmas || turmasCriadas.length === 0) {
+      return;
+    }
+
+    Alert.alert(
+      "Selecionar Turma",
+      "Escolha a turma que receberá os alunos.",
+      turmasCriadas.map((turma) => ({
+        text: turma.nome,
+        onPress: () => setTurmaSelecionadaMatricula(turma),
+      })),
+    );
+  }
+
+  function toggleAlunoSelecionado(aluno: Aluno) {
+    setAlunosSelecionados((atual) => {
+      const jaSelecionado = atual.some(
+        (item) => item.idUsuario === aluno.idUsuario,
+      );
+
+      if (jaSelecionado) {
+        return atual.filter((item) => item.idUsuario !== aluno.idUsuario);
+      }
+
+      return [...atual, aluno];
+    });
+  }
+
+  async function handleMatricularAlunos() {
+    if (!turmaSelecionadaMatricula) {
+      Alert.alert("Atenção", "Selecione a turma que receberá os alunos.");
+      return;
+    }
+
+    if (alunosSelecionados.length === 0) {
+      Alert.alert("Atenção", "Selecione pelo menos um aluno.");
+      return;
+    }
+
+    try {
+      setLoadingMatricula(true);
+      await api.post("/coordenacao/matricular-alunos", {
+        idTurma: turmaSelecionadaMatricula.idTurma,
+        idsAlunos: alunosSelecionados.map((aluno) => aluno.idUsuario),
+      });
+
+      Alert.alert(
+        "Sucesso",
+        `${alunosSelecionados.length} aluno(s) vinculados à turma "${turmaSelecionadaMatricula.nome}".`,
+      );
+      setAlunosSelecionados([]);
+      setBuscaAluno("");
+      setShowAlunoModal(false);
+    } catch (error: any) {
+      console.log("Erro ao matricular alunos:", error?.response?.data || error);
+      Alert.alert(
+        "Erro ao matricular alunos",
+        error?.response?.data?.message ||
+          "Não foi possível vincular os alunos à turma.",
+      );
+    } finally {
+      setLoadingMatricula(false);
+    }
+  }
+
   async function excluirTurma(idTurma: string, nomeTurma: string) {
     try {
       setLoading(true);
       await api.delete(`/coordenacao/turmas/${idTurma}`);
       setTurmasCriadas((prev) => prev.filter((t) => t.idTurma !== idTurma));
+      setTurmaSelecionadaMatricula((atual) =>
+        atual?.idTurma === idTurma ? null : atual,
+      );
       Alert.alert("Sucesso", `Turma "${nomeTurma}" removida com sucesso!`);
     } catch (error: any) {
       console.log("Erro ao excluir turma:", error?.response?.data || error);
@@ -182,6 +279,16 @@ export default function CriarTurma() {
       ],
     );
   }
+
+  const alunosFiltrados = alunos.filter((aluno) => {
+    const termo = buscaAluno.trim().toLowerCase();
+    if (!termo) return true;
+
+    return (
+      aluno.nome.toLowerCase().includes(termo) ||
+      aluno.email.toLowerCase().includes(termo)
+    );
+  });
 
   return (
     <ScrollView
@@ -278,6 +385,84 @@ export default function CriarTurma() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Vincular Alunos</Text>
+        <Text style={styles.subtitle}>
+          Matricule os alunos na turma criada para que eles recebam as atividades
+          do professor.
+        </Text>
+
+        <Text style={styles.label}>Turma de destino</Text>
+        <TouchableOpacity
+          style={styles.select}
+          activeOpacity={0.8}
+          onPress={handleSelecionarTurmaMatricula}
+          disabled={loadingTurmas || turmasCriadas.length === 0}
+        >
+          <Text style={styles.selectValue}>
+            {turmaSelecionadaMatricula?.nome || "Nenhuma turma disponível"}
+          </Text>
+          <Feather name="chevron-down" size={16} color="#7c8db5" />
+        </TouchableOpacity>
+
+        <Text style={styles.label}>Alunos da turma</Text>
+        {loadingAlunos ? (
+          <View style={styles.loadingSelect}>
+            <ActivityIndicator color="#16C7E7" size="small" />
+            <Text style={styles.loadingText}>Carregando alunos...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.select}
+            activeOpacity={0.8}
+            onPress={() => setShowAlunoModal(true)}
+            disabled={alunos.length === 0}
+          >
+            <Text style={styles.selectValue}>
+              {alunosSelecionados.length > 0
+                ? `${alunosSelecionados.length} aluno(s) selecionado(s)`
+                : "Selecionar alunos"}
+            </Text>
+            <Feather name="users" size={16} color="#7c8db5" />
+          </TouchableOpacity>
+        )}
+
+        {alunosSelecionados.length > 0 && (
+          <View style={styles.selectedSummary}>
+            {alunosSelecionados.slice(0, 4).map((aluno) => (
+              <View key={aluno.idUsuario} style={styles.selectedChip}>
+                <Text style={styles.selectedChipText}>{aluno.nome}</Text>
+              </View>
+            ))}
+            {alunosSelecionados.length > 4 && (
+              <Text style={styles.moreSelectedText}>
+                +{alunosSelecionados.length - 4} selecionado(s)
+              </Text>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.button, loadingMatricula && styles.buttonDisabled]}
+          onPress={handleMatricularAlunos}
+          disabled={
+            loadingMatricula ||
+            !turmaSelecionadaMatricula ||
+            alunosSelecionados.length === 0
+          }
+          activeOpacity={0.8}
+        >
+          {loadingMatricula ? (
+            <ActivityIndicator color="#050E1D" />
+          ) : (
+            <>
+              <Feather name="user-plus" size={18} color="#050E1D" />
+              <Text style={styles.buttonText}>Vincular Alunos à Turma</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.sectionTitle}>Turmas cadastradas</Text>
 
       {loadingTurmas ? (
@@ -331,6 +516,96 @@ export default function CriarTurma() {
           </Text>
         </View>
       )}
+
+      <Modal
+        visible={showAlunoModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAlunoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecionar Alunos</Text>
+              <TouchableOpacity onPress={() => setShowAlunoModal(false)}>
+                <Feather name="x" size={22} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Feather name="search" size={16} color="#7c8db5" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar aluno por nome ou e-mail"
+                placeholderTextColor="#7c8db5"
+                value={buscaAluno}
+                onChangeText={setBuscaAluno}
+              />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {alunosFiltrados.length > 0 ? (
+                alunosFiltrados.map((aluno) => {
+                  const selecionado = alunosSelecionados.some(
+                    (item) => item.idUsuario === aluno.idUsuario,
+                  );
+
+                  return (
+                    <TouchableOpacity
+                      key={aluno.idUsuario}
+                      style={[
+                        styles.usuarioItem,
+                        selecionado && styles.usuarioItemSelected,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => toggleAlunoSelecionado(aluno)}
+                    >
+                      <View style={styles.usuarioAvatar}>
+                        <Text style={styles.usuarioAvatarText}>
+                          {aluno.nome.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.usuarioNome}>{aluno.nome}</Text>
+                        <Text style={styles.usuarioEmail}>{aluno.email}</Text>
+                      </View>
+
+                      <Feather
+                        name={selecionado ? "check-circle" : "circle"}
+                        size={18}
+                        color={selecionado ? "#16C7E7" : "#7c8db5"}
+                      />
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={styles.emptyText}>Nenhum aluno encontrado.</Text>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.button, loadingMatricula && styles.buttonDisabled]}
+              onPress={handleMatricularAlunos}
+              disabled={
+                loadingMatricula ||
+                !turmaSelecionadaMatricula ||
+                alunosSelecionados.length === 0
+              }
+              activeOpacity={0.8}
+            >
+              {loadingMatricula ? (
+                <ActivityIndicator color="#050E1D" />
+              ) : (
+                <>
+                  <Feather name="check" size={18} color="#050E1D" />
+                  <Text style={styles.buttonText}>Confirmar Matrícula</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

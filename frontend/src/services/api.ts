@@ -2,6 +2,8 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+const SECURE_STORE_TOKEN_KEY = "questio_token";
+
 const getDefaultApiUrl = () => {
   if (__DEV__) {
     return Platform.OS === "android"
@@ -22,7 +24,7 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      const token = await SecureStore.getItemAsync("@Questio:token");
+      const token = await SecureStore.getItemAsync(SECURE_STORE_TOKEN_KEY);
 
       if (token) {
         config.headers = config.headers ?? {};

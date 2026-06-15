@@ -26,6 +26,7 @@ export interface AuthContextData {
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+const SECURE_STORE_TOKEN_KEY = "questio_token";
 
 function extrairDadosDoToken(token: string) {
   try {
@@ -125,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUser(dadosUsuario);
     await AsyncStorage.setItem("@Questio:user", JSON.stringify(dadosUsuario));
-    await SecureStore.setItemAsync("@Questio:token", dadosUsuario.token);
+    await SecureStore.setItemAsync(SECURE_STORE_TOKEN_KEY, dadosUsuario.token);
     await AsyncStorage.setItem("token", dadosUsuario.token);
     await AsyncStorage.setItem("tipoUsuario", dadosUsuario.tipoUsuario);
 
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     setUser(null);
     await AsyncStorage.removeItem("@Questio:user");
-    await SecureStore.deleteItemAsync("@Questio:token");
+    await SecureStore.deleteItemAsync(SECURE_STORE_TOKEN_KEY);
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("tipoUsuario");
     await AsyncStorage.removeItem("@questio:token");

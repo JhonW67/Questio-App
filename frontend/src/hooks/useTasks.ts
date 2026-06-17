@@ -20,15 +20,11 @@ export function useTarefas() {
   const concluirTarefa = useCallback(async (id: string) => {
     try {
       await completeStudentTask(id);
-      setTarefas((prev) =>
-        prev.map((tarefa) =>
-          tarefa.id === id ? { ...tarefa, concluida: true } : tarefa,
-        ),
-      );
+      await carregarTarefas();
     } catch (error: any) {
       console.log(error?.response?.data || error);
     }
-  }, []);
+  }, [carregarTarefas]);
 
   const enviarTarefa = useCallback(
     async (id: string, resposta?: string) => {

@@ -190,7 +190,14 @@ export function resolveApiAssetUrl(path: string): string {
 }
 
 export async function openAttachmentUrl(path: string) {
-  const absoluteUrl = resolveApiAssetUrl(path);
+  let nextUrl = path;
+
+  if (/\/tarefas\/submissoes\/.+\/arquivo-link$/i.test(path)) {
+    const { data } = await api.get(path);
+    nextUrl = String(data?.url ?? "");
+  }
+
+  const absoluteUrl = resolveApiAssetUrl(nextUrl);
   await Linking.openURL(absoluteUrl);
 }
 

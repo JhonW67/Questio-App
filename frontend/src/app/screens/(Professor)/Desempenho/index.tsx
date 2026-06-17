@@ -54,28 +54,6 @@ export default function Desempenho() {
   const [notaInput, setNotaInput] = useState("");
   const [feedbackInput, setFeedbackInput] = useState("");
 
-  const carregarTurmas = useCallback(async () => {
-    try {
-      setLoadingTurmas(true);
-      const data = await getPerformanceTurmas();
-      setTurmas(data);
-      setTurmaSelecionada((atual) => {
-        if (atual && data.some((item) => item.idTurma === atual)) {
-          return atual;
-        }
-        return data[0]?.idTurma ?? null;
-      });
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.response?.data?.message ||
-          "Nao foi possivel carregar as turmas do professor.",
-      );
-    } finally {
-      setLoadingTurmas(false);
-    }
-  }, []);
-
   const carregarDesempenho = useCallback(async (idTurma: string) => {
     try {
       setLoading(true);
@@ -92,26 +70,47 @@ export default function Desempenho() {
     }
   }, []);
 
-  useEffect(() => {
-    carregarTurmas();
-  }, [carregarTurmas]);
+  const carregarTurmas = useCallback(async () => {
+    try {
+      setLoadingTurmas(true);
+      const data = await getPerformanceTurmas();
+      const proximaTurma =
+        turmaSelecionada && data.some((item) => item.idTurma === turmaSelecionada)
+          ? turmaSelecionada
+          : data[0]?.idTurma ?? null;
+
+      setTurmas(data);
+      setTurmaSelecionada(proximaTurma);
+
+      if (proximaTurma) {
+        await carregarDesempenho(proximaTurma);
+      } else {
+        setAlunos([]);
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.response?.data?.message ||
+          "Nao foi possivel carregar as turmas do professor.",
+      );
+    } finally {
+      setLoadingTurmas(false);
+    }
+  }, [carregarDesempenho, turmaSelecionada]);
 
   useFocusEffect(
     useCallback(() => {
       carregarTurmas();
-      if (turmaSelecionada) {
-        carregarDesempenho(turmaSelecionada);
-      }
-    }, [carregarDesempenho, carregarTurmas, turmaSelecionada]),
+    }, [carregarTurmas]),
   );
 
-  useEffect(() => {
-    if (turmaSelecionada) {
-      carregarDesempenho(turmaSelecionada);
-    } else {
-      setAlunos([]);
-    }
-  }, [carregarDesempenho, turmaSelecionada]);
+  const selecionarTurma = useCallback(
+    async (idTurma: string) => {
+      setTurmaSelecionada(idTurma);
+      await carregarDesempenho(idTurma);
+    },
+    [carregarDesempenho],
+  );
 
   const mediaGeral = useMemo(() => {
     const comNota = alunos.filter((a) => a.mediaNotas !== null);
@@ -232,7 +231,7 @@ export default function Desempenho() {
                 styles.tab,
                 turmaSelecionada === t.idTurma && styles.tabActive,
               ]}
-              onPress={() => setTurmaSelecionada(t.idTurma)}
+              onPress={() => selecionarTurma(t.idTurma)}
             >
               <Text
                 style={[

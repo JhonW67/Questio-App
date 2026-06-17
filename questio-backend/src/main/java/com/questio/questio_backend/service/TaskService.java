@@ -85,6 +85,20 @@ public class TaskService {
 
     @Transactional
     public String submeterTarefa(UUID idTarefa, TaskSubmissionRequestDTO dto, MultipartFile arquivo) {
+        return submeterTarefaInterna(idTarefa, dto, arquivo, false);
+    }
+
+    @Transactional
+    public String submeterTarefaRapida(UUID idTarefa) {
+        return submeterTarefaInterna(idTarefa, new TaskSubmissionRequestDTO(null), null, true);
+    }
+
+    private String submeterTarefaInterna(
+            UUID idTarefa,
+            TaskSubmissionRequestDTO dto,
+            MultipartFile arquivo,
+            boolean allowEmptySubmission
+    ) {
         User aluno = getUsuarioAutenticado();
 
         if (Boolean.TRUE.equals(aluno.getAcessoBloqueado())) {
@@ -106,7 +120,7 @@ public class TaskService {
         boolean semResposta = resposta == null || resposta.isBlank();
         boolean semArquivo = arquivo == null || arquivo.isEmpty();
 
-        if (semResposta && semArquivo) {
+        if (semResposta && semArquivo && !allowEmptySubmission) {
             throw new RuntimeException("Envie uma resposta textual ou anexe um arquivo para concluir a tarefa.");
         }
 
@@ -166,7 +180,7 @@ public class TaskService {
                             submissao != null ? submissao.getStatus() : null,
                             submissao != null ? submissao.getEnviadoEm() : null,
                             submissao != null ? submissao.getArquivoNome() : null,
-                            submissao != null ? buildAttachmentUrl(submissao, aluno.getIdUsuario()) : null
+                            submissao != null ? buildAttachmentUrl(submissao) : null
                     );
                 })
                 .toList();
@@ -245,7 +259,13 @@ public class TaskService {
         return "/api/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo/public?token=" + token;
     }
 
-    private String buildAttachmentUrl(SubmitTask submissao, UUID idUsuario) {
-        return gerarLinkTemporarioDeAnexo(submissao, idUsuario);
+    public String gerarLinkTemporarioDeAnexoAutenticado(UUID idSubmissao) {
+        User usuario = getUsuarioAutenticado();
+        SubmitTask submissao = buscarSubmissaoComPermissao(idSubmissao);
+        return gerarLinkTemporarioDeAnexo(submissao, usuario.getIdUsuario());
+    }
+
+    private String buildAttachmentUrl(SubmitTask submissao) {
+        return "/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo-link";
     }
 }

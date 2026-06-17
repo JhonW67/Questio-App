@@ -169,7 +169,7 @@ public class DesempenhoService {
                 item.getResposta(),
                 item.getArquivoNome(),
                 item.getArquivoUrl() != null
-                        ? taskService.gerarLinkTemporarioDeAnexo(item, getProfessorAutenticado().getIdUsuario())
+                        ? "/tarefas/submissoes/" + item.getIdSubmit() + "/arquivo-link"
                         : null
         );
     }

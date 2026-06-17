@@ -38,7 +38,7 @@ public class TaskController {
     @PatchMapping("/{id}/concluir")
     @PreAuthorize("hasRole('ALUNO')")
     public ResponseEntity<Map<String, String>> submeter(@PathVariable UUID id) {
-        String mensagem = tarefaService.submeterTarefa(id, new TaskSubmissionRequestDTO(null), null);
+        String mensagem = tarefaService.submeterTarefaRapida(id);
         return ResponseEntity.ok(Map.of("mensagem", mensagem));
     }
 
@@ -91,6 +91,11 @@ public class TaskController {
                                 .toString()
                 )
                 .body(resource);
+    }
+
+    @GetMapping("/submissoes/{idSubmissao}/arquivo-link")
+    public ResponseEntity<Map<String, String>> gerarLinkTemporarioDeArquivo(@PathVariable UUID idSubmissao) {
+        return ResponseEntity.ok(Map.of("url", tarefaService.gerarLinkTemporarioDeAnexoAutenticado(idSubmissao)));
     }
 
     @GetMapping("/submissoes/{idSubmissao}/arquivo/public")

@@ -98,6 +98,9 @@ export interface StudentTask {
   concluida: boolean;
   pontos: number | null;
   categoria?: string | null;
+  resposta: string | null;
+  statusSubmissao: string | null;
+  enviadoEm: string | null;
 }
 
 export interface PerformanceTurma {
@@ -114,6 +117,7 @@ export interface PerformancePendingSubmission {
   status: string | null;
   nota: number | null;
   feedback: string | null;
+  resposta: string | null;
 }
 
 export interface PerformanceStudent {
@@ -314,6 +318,18 @@ export function normalizeStudentTask(raw: any): StudentTask {
       raw?.pontos === null || raw?.pontos === undefined
         ? null
         : Number(raw.pontos),
+    resposta:
+      raw?.resposta === null || raw?.resposta === undefined
+        ? null
+        : String(raw.resposta),
+    statusSubmissao:
+      raw?.statusSubmissao === null || raw?.statusSubmissao === undefined
+        ? null
+        : String(raw.statusSubmissao),
+    enviadoEm:
+      raw?.enviadoEm === null || raw?.enviadoEm === undefined
+        ? null
+        : String(raw.enviadoEm),
     categoria:
       raw?.categoria === null || raw?.categoria === undefined
         ? null
@@ -353,6 +369,10 @@ export function normalizePerformancePendingSubmission(
       raw?.feedback === null || raw?.feedback === undefined
         ? null
         : String(raw.feedback),
+    resposta:
+      raw?.resposta === null || raw?.resposta === undefined
+        ? null
+        : String(raw.resposta),
   };
 }
 

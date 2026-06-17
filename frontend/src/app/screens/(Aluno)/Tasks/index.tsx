@@ -7,18 +7,24 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { styles } from "../../../../styles/Tasks";
 import TaskFilterTabs, { TaskFilter } from "../../../../components/pill/pill";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
-import { completeStudentTask, getStudentTasks } from "../../../../services/api";
+import { getStudentTasks, submitStudentTask } from "../../../../services/api";
 import type { StudentTask } from "../../../../types/academic";
 
 export default function Tasks() {
   const [filter, setFilter] = useState<TaskFilter>("todas");
   const [loading, setLoading] = useState(true);
   const [tarefas, setTarefas] = useState<StudentTask[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [tarefaSelecionada, setTarefaSelecionada] = useState<StudentTask | null>(null);
+  const [resposta, setResposta] = useState("");
 
   const carregarTarefas = useCallback(async () => {
     try {
@@ -44,23 +50,56 @@ export default function Tasks() {
     }, [carregarTarefas]),
   );
 
-  async function concluirTarefa(id: string) {
-    try {
-      const mensagem = await completeStudentTask(id);
-
-      setTarefas((prev) =>
-        prev.map((tarefa) =>
-          tarefa.id === id ? { ...tarefa, concluida: true } : tarefa,
-        ),
+  function abrirSubmissao(tarefa: StudentTask) {
+    if (tarefa.concluida) {
+      Alert.alert(
+        "Tarefa já enviada",
+        tarefa.enviadoEm
+          ? `Entrega registrada em ${new Date(tarefa.enviadoEm).toLocaleString("pt-BR")}.`
+          : "Essa tarefa já foi enviada.",
       );
+      return;
+    }
+
+    setTarefaSelecionada(tarefa);
+    setResposta(tarefa.resposta ?? "");
+    setModalVisible(true);
+  }
+
+  async function enviarTarefa() {
+    if (!tarefaSelecionada) return;
+
+    if (!resposta.trim()) {
+      Alert.alert("Atenção", "Escreva sua resposta antes de enviar.");
+      return;
+    }
+
+    if (resposta.trim().length < 10) {
+      Alert.alert("Atenção", "A resposta precisa ter pelo menos 10 caracteres.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const mensagem = await submitStudentTask({
+        idTask: tarefaSelecionada.id,
+        resposta: resposta.trim(),
+      });
+
+      setModalVisible(false);
+      setResposta("");
+      setTarefaSelecionada(null);
+      await carregarTarefas();
       Alert.alert("Sucesso", mensagem);
     } catch (error: any) {
       Alert.alert(
         "Erro",
         error?.response?.data?.message ||
           error?.message ||
-          "Nao foi possivel concluir a tarefa.",
+          "Nao foi possivel enviar a tarefa.",
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -113,7 +152,7 @@ export default function Tasks() {
             <TouchableOpacity
               style={styles.cardRow}
               activeOpacity={0.8}
-              onPress={() => concluirTarefa(tarefa.id)}
+              onPress={() => abrirSubmissao(tarefa)}
             >
               <View
                 style={[
@@ -147,11 +186,71 @@ export default function Tasks() {
                     XP: {tarefa.pontos ?? 0}
                   </Text>
                 </View>
+                {tarefa.concluida ? (
+                  <Text style={styles.metaText}>
+                    Status: {tarefa.statusSubmissao || "Concluido"}
+                  </Text>
+                ) : null}
               </View>
             </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {tarefaSelecionada?.titulo || "Enviar tarefa"}
+            </Text>
+
+            <Text style={styles.fieldLabel}>Objetivo</Text>
+            <Text style={styles.metaText}>
+              {tarefaSelecionada?.objetivo || "Sem descrição disponível."}
+            </Text>
+
+            <Text style={styles.fieldLabel}>Sua resposta</Text>
+            <TextInput
+              style={[
+                styles.input,
+                { minHeight: 130, textAlignVertical: "top" },
+              ]}
+              multiline
+              numberOfLines={6}
+              placeholder="Escreva aqui a sua entrega para o professor avaliar."
+              placeholderTextColor="#7f8ca1"
+              value={resposta}
+              onChangeText={setResposta}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setModalVisible(false)}
+                disabled={saving}
+              >
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, saving && { opacity: 0.7 }]}
+                onPress={enviarTarefa}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#0d1424" size="small" />
+                ) : (
+                  <Text style={styles.saveText}>Enviar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

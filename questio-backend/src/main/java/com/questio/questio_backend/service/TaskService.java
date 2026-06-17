@@ -2,6 +2,7 @@ package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.TaskRequestDTO;
 import com.questio.questio_backend.dto.TaskResponseDTO;
+import com.questio.questio_backend.dto.TaskSubmissionRequestDTO;
 import com.questio.questio_backend.entity.Class;
 import com.questio.questio_backend.entity.SubmitTask;
 import com.questio.questio_backend.entity.Task;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -63,11 +65,21 @@ public class TaskService {
         Task salva = tarefaRepository.save(novaTarefa);
 
 
-        return new TaskResponseDTO(salva.getIdTask(), salva.getTitulo(), salva.getDescricao(), salva.getPrazo(), false, salva.getPontos());
+        return new TaskResponseDTO(
+                salva.getIdTask(),
+                salva.getTitulo(),
+                salva.getDescricao(),
+                salva.getPrazo(),
+                false,
+                salva.getPontos(),
+                null,
+                null,
+                null
+        );
     }
 
     @Transactional
-    public String submeterTarefa(UUID idTarefa) {
+    public String submeterTarefa(UUID idTarefa, TaskSubmissionRequestDTO dto) {
         User aluno = getUsuarioAutenticado();
 
         if (Boolean.TRUE.equals(aluno.getAcessoBloqueado())) {
@@ -77,13 +89,20 @@ public class TaskService {
         Task tarefa = tarefaRepository.findById(idTarefa)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
 
+        if (tarefa.getTurma() == null || !aluno.getTurmas().contains(tarefa.getTurma())) {
+            throw new RuntimeException("Você não possui acesso a esta tarefa.");
+        }
+
         if (submissaoRepository.existsByAlunoAndTarefa(aluno, tarefa)) {
             throw new RuntimeException("Você já submeteu esta tarefa!");
         }
 
+        String resposta = dto != null && dto.resposta() != null ? dto.resposta().trim() : null;
+
         SubmitTask submissao = SubmitTask.builder()
                 .aluno(aluno)
                 .tarefa(tarefa)
+                .resposta(resposta == null || resposta.isBlank() ? null : resposta)
                 .status("Concluido")
                 .enviadoEm(LocalDateTime.now())
                 .build();
@@ -109,10 +128,17 @@ public class TaskService {
 
         Set<Class> turmas = aluno.getTurmas();
 
+        var submissoesPorTarefa = submissaoRepository.findByAluno(aluno).stream()
+                .collect(Collectors.toMap(
+                        item -> item.getTarefa().getIdTask(),
+                        item -> item,
+                        (first, second) -> first
+                ));
+
         return tarefaRepository.findByTurmaIn(turmas).stream()
                 .map(t -> {
-
-                    boolean isConcluida = submissaoRepository.existsByAlunoAndTarefa(aluno, t);
+                    SubmitTask submissao = submissoesPorTarefa.get(t.getIdTask());
+                    boolean isConcluida = submissao != null;
 
                     return new TaskResponseDTO(
                             t.getIdTask(),
@@ -120,7 +146,10 @@ public class TaskService {
                             t.getDescricao(),
                             t.getPrazo(),
                             isConcluida,
-                            t.getPontos()
+                            t.getPontos(),
+                            submissao != null ? submissao.getResposta() : null,
+                            submissao != null ? submissao.getStatus() : null,
+                            submissao != null ? submissao.getEnviadoEm() : null
                     );
                 })
                 .toList();

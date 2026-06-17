@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { completeStudentTask, getStudentTasks } from "../services/api";
+import { completeStudentTask, getStudentTasks, submitStudentTask } from "../services/api";
 import type { StudentTask } from "../types/academic";
 
 export function useTarefas() {
@@ -30,6 +30,14 @@ export function useTarefas() {
     }
   }, []);
 
+  const enviarTarefa = useCallback(
+    async (id: string, resposta?: string) => {
+      await submitStudentTask({ idTask: id, resposta });
+      await carregarTarefas();
+    },
+    [carregarTarefas],
+  );
+
   useEffect(() => {
     carregarTarefas();
   }, [carregarTarefas]);
@@ -50,5 +58,6 @@ export function useTarefas() {
     loading,
     carregarTarefas,
     concluirTarefa,
+    enviarTarefa,
   };
 }

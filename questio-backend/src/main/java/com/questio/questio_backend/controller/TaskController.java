@@ -2,6 +2,7 @@ package com.questio.questio_backend.controller;
 
 import com.questio.questio_backend.dto.TaskRequestDTO;
 import com.questio.questio_backend.dto.TaskResponseDTO;
+import com.questio.questio_backend.dto.TaskSubmissionRequestDTO;
 import com.questio.questio_backend.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +31,18 @@ public class TaskController {
     @PatchMapping("/{id}/concluir")
     @PreAuthorize("hasRole('ALUNO')")
     public ResponseEntity<Map<String, String>> submeter(@PathVariable UUID id) {
-        String mensagem = tarefaService.submeterTarefa(id);
+        String mensagem = tarefaService.submeterTarefa(id, new TaskSubmissionRequestDTO(null));
         return ResponseEntity.ok(Map.of("mensagem", mensagem));
+    }
+
+    @PostMapping("/{id}/submissoes")
+    @PreAuthorize("hasRole('ALUNO')")
+    public ResponseEntity<Map<String, String>> criarSubmissao(
+            @PathVariable UUID id,
+            @RequestBody(required = false) @Valid TaskSubmissionRequestDTO dto
+    ) {
+        String mensagem = tarefaService.submeterTarefa(id, dto == null ? new TaskSubmissionRequestDTO(null) : dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("mensagem", mensagem));
     }
 
     @GetMapping

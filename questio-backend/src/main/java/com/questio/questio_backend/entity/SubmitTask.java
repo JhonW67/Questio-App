@@ -27,6 +27,8 @@ public class SubmitTask {
     @JoinColumn(name = "id_tarefa")
     private Task tarefa;
 
+    @Column(columnDefinition = "text")
+    private String resposta;
     private String arquivoUrl;
     private String status;
     private Float nota;

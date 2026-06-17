@@ -9,5 +9,8 @@ public record TaskResponseDTO(
         String objetivo,
         LocalDateTime dataEntrega,
         boolean concluida,
-        Integer pontos
+        Integer pontos,
+        String resposta,
+        String statusSubmissao,
+        LocalDateTime enviadoEm
 ) {}

@@ -399,6 +399,14 @@ export default function Desempenho() {
               <Text style={styles.respostaTexto}>
                 Status: {submissaoSelecionada?.status || "Concluido"}
               </Text>
+              <Text style={[styles.respostaLabel, { marginTop: 12 }]}>
+                Resposta do aluno
+              </Text>
+              <Text style={styles.respostaTexto}>
+                {submissaoSelecionada?.resposta?.trim()
+                  ? submissaoSelecionada.resposta
+                  : "O aluno concluiu a tarefa sem enviar uma resposta textual."}
+              </Text>
             </View>
 
             <View style={styles.avaliacaoBox}>

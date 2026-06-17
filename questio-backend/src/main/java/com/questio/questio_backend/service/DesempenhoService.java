@@ -164,7 +164,8 @@ public class DesempenhoService {
                 item.getEnviadoEm(),
                 item.getStatus(),
                 item.getNota(),
-                item.getFeedback()
+                item.getFeedback(),
+                item.getResposta()
         );
     }
 }

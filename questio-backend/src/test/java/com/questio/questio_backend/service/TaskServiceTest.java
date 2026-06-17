@@ -1,14 +1,18 @@
 package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.TaskRequestDTO;
+import com.questio.questio_backend.dto.TaskSubmissionRequestDTO;
 import com.questio.questio_backend.entity.Class;
 import com.questio.questio_backend.entity.Curso;
 import com.questio.questio_backend.entity.Disciplina;
+import com.questio.questio_backend.entity.Task;
 import com.questio.questio_backend.entity.User;
 import com.questio.questio_backend.entity.enums.TipoUsuario;
 import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.CursoRepository;
 import com.questio.questio_backend.repository.DisciplinaRepository;
+import com.questio.questio_backend.repository.SubmitRepository;
+import com.questio.questio_backend.repository.TaskRepository;
 import com.questio.questio_backend.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +45,12 @@ class TaskServiceTest {
 
     @Autowired
     private ClassRepository classRepository;
+
+    @Autowired
+    private TaskRepository taskRepository;
+
+    @Autowired
+    private SubmitRepository submitRepository;
 
     @AfterEach
     void clearSecurityContext() {
@@ -84,6 +94,32 @@ class TaskServiceTest {
                 .hasMessageContaining("Você só pode criar tarefas para turmas vinculadas ao seu perfil.");
     }
 
+    @Test
+    void submeterTarefa_quandoAlunoDaTurma_enviaRespostaEPersisteSubmissao() {
+        User professor = salvarProfessor("professor.submissao");
+        User aluno = salvarAluno("aluno.submissao");
+        Class turma = salvarTurmaComAluno("Turma Submissao", professor, aluno);
+        Task tarefa = taskRepository.save(Task.builder()
+                .titulo("Atividade 1")
+                .descricao("Descreva a solução")
+                .prazo(LocalDateTime.now().plusDays(2))
+                .pontos(15)
+                .professor(professor)
+                .turma(turma)
+                .build());
+        autenticarComo(aluno);
+
+        var mensagem = taskService.submeterTarefa(
+                tarefa.getIdTask(),
+                new TaskSubmissionRequestDTO("Minha resposta detalhada da atividade.")
+        );
+
+        assertThat(mensagem).contains("15 XP");
+        var submissao = submitRepository.findByAluno(aluno).getFirst();
+        assertThat(submissao.getResposta()).contains("Minha resposta detalhada");
+        assertThat(submissao.getTarefa().getIdTask()).isEqualTo(tarefa.getIdTask());
+    }
+
     private User salvarProfessor(String prefixoEmail) {
         return userRepository.save(User.builder()
                 .nome("Professor Teste")
@@ -91,6 +127,17 @@ class TaskServiceTest {
                 .senha("senha")
                 .curso("Engenharia de Software")
                 .tipoUsuario(TipoUsuario.PROFESSOR.getValor())
+                .termoAceito(true)
+                .build());
+    }
+
+    private User salvarAluno(String prefixoEmail) {
+        return userRepository.save(User.builder()
+                .nome("Aluno Teste")
+                .email(prefixoEmail + "." + System.nanoTime() + "@questio.com")
+                .senha("senha")
+                .curso("Engenharia de Software")
+                .tipoUsuario(TipoUsuario.ALUNO.getValor())
                 .termoAceito(true)
                 .build());
     }
@@ -117,6 +164,14 @@ class TaskServiceTest {
                 .disciplina(disciplina)
                 .semestre(1)
                 .build());
+    }
+
+    private Class salvarTurmaComAluno(String nomeTurma, User professor, User aluno) {
+        Class turma = salvarTurma(nomeTurma, professor);
+        turma.getAlunos().add(aluno);
+        aluno.getTurmas().add(turma);
+        userRepository.save(aluno);
+        return classRepository.save(turma);
     }
 
     private void autenticarComo(User user) {

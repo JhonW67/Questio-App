@@ -76,6 +76,7 @@ class DesempenhoServiceTest {
         assertThat(alunoDesempenho.tarefasTotal()).isEqualTo(1);
         assertThat(alunoDesempenho.entregasPendentesAvaliacao()).isEqualTo(1);
         assertThat(alunoDesempenho.pendenciasAvaliacao()).hasSize(1);
+        assertThat(alunoDesempenho.pendenciasAvaliacao().getFirst().resposta()).contains("Resposta do aluno");
     }
 
     @Test
@@ -173,6 +174,7 @@ class DesempenhoServiceTest {
         return submitRepository.save(SubmitTask.builder()
                 .aluno(aluno)
                 .tarefa(tarefa)
+                .resposta("Resposta do aluno sobre a atividade.")
                 .status("Concluido")
                 .enviadoEm(LocalDateTime.now())
                 .build());

@@ -11,6 +11,7 @@ public record DesempenhoPendenteDTO(
         LocalDateTime enviadoEm,
         String status,
         Float nota,
-        String feedback
+        String feedback,
+        String resposta
 ) {
 }

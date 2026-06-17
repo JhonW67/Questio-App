@@ -146,6 +146,16 @@ export async function completeStudentTask(idTask: string): Promise<string> {
   return String(data?.mensagem ?? "Tarefa concluida com sucesso.");
 }
 
+export async function submitStudentTask(payload: {
+  idTask: string;
+  resposta?: string;
+}): Promise<string> {
+  const { data } = await api.post(`/tarefas/${payload.idTask}/submissoes`, {
+    resposta: payload.resposta ?? "",
+  });
+  return String(data?.mensagem ?? "Tarefa enviada com sucesso.");
+}
+
 export async function getPerformanceTurmas(): Promise<PerformanceTurma[]> {
   const { data } = await api.get("/desempenho/turmas");
   return Array.isArray(data) ? data.map(normalizePerformanceTurma) : [];

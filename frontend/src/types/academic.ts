@@ -55,6 +55,14 @@ export interface CursoPayload {
   disciplinas?: DisciplinaPayload[];
 }
 
+export interface CursoUpdatePayload {
+  nome: string;
+  descricao?: string;
+  cargaHoraria?: number;
+  vagas?: number;
+  ativo?: boolean;
+}
+
 export interface DisciplinaPayload {
   nome: string;
   semestre: number;

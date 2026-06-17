@@ -2,6 +2,7 @@ package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.CursoRequestDTO;
 import com.questio.questio_backend.dto.CursoResponseDTO;
+import com.questio.questio_backend.dto.CursoUpdateRequestDTO;
 import com.questio.questio_backend.dto.DisciplinaRequestDTO;
 import com.questio.questio_backend.dto.DisciplinaResponseDTO;
 import com.questio.questio_backend.entity.Curso;
@@ -13,6 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -49,6 +53,14 @@ public class AcademicService {
                 .build();
 
         if (dto.disciplinas() != null) {
+            Set<String> uniqueKeys = new HashSet<>();
+            dto.disciplinas().forEach(item -> {
+                String key = item.semestre() + "|" + item.nome().trim().toLowerCase(Locale.ROOT);
+                if (!uniqueKeys.add(key)) {
+                    throw new RuntimeException("Disciplina duplicada para o mesmo semestre.");
+                }
+            });
+
             dto.disciplinas().forEach(item -> curso.getDisciplinas().add(
                     Disciplina.builder()
                             .curso(curso)
@@ -68,6 +80,14 @@ public class AcademicService {
         Curso curso = cursoRepository.findById(idCurso)
                 .orElseThrow(() -> new RuntimeException("Curso não encontrado"));
 
+        if (disciplinaRepository.existsByCursoIdCursoAndSemestreAndNomeIgnoreCase(
+                idCurso,
+                dto.semestre(),
+                dto.nome().trim()
+        )) {
+            throw new RuntimeException("Essa disciplina já existe para o mesmo semestre.");
+        }
+
         Disciplina disciplina = Disciplina.builder()
                 .curso(curso)
                 .nome(dto.nome())
@@ -77,6 +97,22 @@ public class AcademicService {
                 .build();
 
         return mapDisciplina(disciplinaRepository.save(disciplina));
+    }
+
+    @Transactional
+    public CursoResponseDTO atualizarCurso(UUID idCurso, CursoUpdateRequestDTO dto) {
+        Curso curso = cursoRepository.findById(idCurso)
+                .orElseThrow(() -> new RuntimeException("Curso não encontrado"));
+
+        curso.setNome(dto.nome());
+        curso.setDescricao(dto.descricao());
+        curso.setCargaHoraria(dto.cargaHoraria());
+        curso.setVagas(dto.vagas());
+        if (dto.ativo() != null) {
+            curso.setAtivo(dto.ativo());
+        }
+
+        return mapCurso(cursoRepository.save(curso));
     }
 
     private CursoResponseDTO mapCurso(Curso curso) {

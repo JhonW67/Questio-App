@@ -1,6 +1,7 @@
 package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.LoginRequestDTO;
+import com.questio.questio_backend.dto.CreateStaffUserRequestDTO;
 import com.questio.questio_backend.dto.UserRankingResponseDTO;
 import com.questio.questio_backend.dto.UserRegisterRequestDTO;
 import com.questio.questio_backend.dto.UserResponseDTO;
@@ -20,6 +21,7 @@ public interface UserService {
     UserResponseDTO getAuthenticatedUserProfile();
     UserRankingResponseDTO getUserRankingStatus();
     UserResponseDTO setAcessoBloqueado(UUID userId, boolean bloqueado);
+    UserResponseDTO createStaffUser(CreateStaffUserRequestDTO request);
     void touchUltimaAtividade(UUID userId);
     List<UserResponseDTO> listByTipoUsuario(String tipoUsuario);
 }

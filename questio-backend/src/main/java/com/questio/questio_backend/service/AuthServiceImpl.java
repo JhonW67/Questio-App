@@ -55,11 +55,17 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
+        if (tipo != TipoUsuario.ALUNO) {
+            return UserResponseDTO.builder()
+                    .mensagem("Cadastro de professor e coordenação deve ser feito pela coordenação.")
+                    .build();
+        }
+
         User newUser = User.builder()
                 .nome(request.nome())
                 .email(request.email())
                 .senha(passwordEncoder.encode(request.senha()))
-                .curso(request.curso())
+                .curso(request.curso() == null ? "" : request.curso())
                 .tipoUsuario(tipo.getValor())
                 .termoAceito(true)
                 .xpTotal(0)
@@ -101,6 +107,10 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponseDTO login(LoginRequestDTO data) {
         User user = userRepository.findByEmail(data.email())
                 .orElseThrow(() -> new RuntimeException("Credenciais inválidas"));
+
+        if (Boolean.TRUE.equals(user.getAcessoBloqueado())) {
+            throw new RuntimeException("Seu acesso está bloqueado. Contate a coordenação.");
+        }
 
         if (Boolean.FALSE.equals(user.getEmailVerificado())) {
             throw new RuntimeException("Sua conta ainda não foi ativada. Verifique sua caixa de entrada para confirmar o e-mail.");

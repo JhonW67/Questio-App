@@ -1,10 +1,10 @@
 package com.questio.questio_backend.controller;
 
 import com.questio.questio_backend.dto.LoginRequestDTO;
+import com.questio.questio_backend.dto.LoginResponseDTO;
 import com.questio.questio_backend.dto.UserRegisterRequestDTO;
 import com.questio.questio_backend.dto.UserResponseDTO;
 import com.questio.questio_backend.service.AuthService;
-import com.questio.questio_backend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserService userService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponseDTO> register(@Valid @RequestBody UserRegisterRequestDTO request){
 
-        UserResponseDTO response = userService.registerNewUser(request);
+        UserResponseDTO response = authService.registerNewUser(request);
 
         if(response.idUsuario() != null){
             return ResponseEntity.ok(response);
@@ -36,8 +35,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Object> login(@RequestBody @Valid LoginRequestDTO data) {
-        return ResponseEntity.ok(userService.login(data));
+    public ResponseEntity<LoginResponseDTO> login(@RequestBody @Valid LoginRequestDTO data) {
+        return ResponseEntity.ok((LoginResponseDTO) authService.login(data));
     }
 
     @GetMapping("/verificar-email")

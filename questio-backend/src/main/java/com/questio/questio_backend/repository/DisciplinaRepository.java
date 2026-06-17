@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface DisciplinaRepository extends JpaRepository<Disciplina, UUID> {
     List<Disciplina> findByCursoIdCursoOrderBySemestreAscNomeAsc(UUID idCurso);
     List<Disciplina> findByCursoIdCursoAndSemestreOrderByNomeAsc(UUID idCurso, Integer semestre);
+
+    boolean existsByCursoIdCursoAndSemestreAndNomeIgnoreCase(UUID idCurso, Integer semestre, String nome);
 }

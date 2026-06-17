@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 interface RankingDTO {
+  idUsuario?: string;
   nome: string;
   xpTotal: number;
   nivel: number;
@@ -25,7 +26,7 @@ interface RankingDTO {
 
 interface UserRankingResponseDTO {
   top10: RankingDTO[];
-  usuarioAtual: RankingDTO;
+  usuarioAtual: RankingDTO | null;
 }
 
 function RankRow({
@@ -123,9 +124,7 @@ export default function Rankings() {
   }
   const { top10, usuarioAtual } = ranking;
 
-  const alunos = top10
-    .filter((item) => item.tipoUsuario === "Aluno" || !item.tipoUsuario)
-    .sort((a, b) => b.xpTotal - a.xpTotal);
+  const alunos = top10;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -143,14 +142,18 @@ export default function Rankings() {
       <Text style={styles.pageTitle}>Ranking</Text>
       <FlatList
         data={alunos}
-        keyExtractor={(item, index) => `${item.nome}-${index}`}
+        keyExtractor={(item, index) => item.idUsuario ?? `${item.nome}-${index}`}
         contentContainerStyle={styles.lista}
         showsVerticalScrollIndicator={false}
         renderItem={({ item, index }) => (
           <RankRow
             item={item}
             index={index}
-            isCurrentUser={item.nome === usuarioAtual.nome}
+            isCurrentUser={
+              Boolean(item.idUsuario) &&
+              Boolean(usuarioAtual?.idUsuario) &&
+              item.idUsuario === usuarioAtual?.idUsuario
+            }
           />
         )}
         ListEmptyComponent={

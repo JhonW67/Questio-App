@@ -210,13 +210,11 @@ export default function Register() {
                 { marginTop: -2, marginBottom: 12, textAlign: "left" },
               ]}
             >
-              {isCursoObrigatorio
-                ? "O curso do aluno e obrigatorio no cadastro."
-                : "Para professor e coordenacao, o curso permanece opcional neste fluxo."}
+              O curso do aluno e obrigatorio no cadastro.
             </Text>
 
             <RadioSelect
-              options={["Aluno", "Professor", "Coordenacao"]}
+              options={["Aluno"]}
               selected={tipo}
               onChange={(value) => setTipo(value as TipoCadastro)}
             />

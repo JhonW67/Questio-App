@@ -2,6 +2,7 @@ package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.LoginRequestDTO;
 import com.questio.questio_backend.dto.LoginResponseDTO;
+import com.questio.questio_backend.dto.CreateStaffUserRequestDTO;
 import com.questio.questio_backend.dto.UserRankingResponseDTO;
 import com.questio.questio_backend.dto.UserRegisterRequestDTO;
 import com.questio.questio_backend.dto.UserResponseDTO;
@@ -73,7 +74,7 @@ public class UserServiceImpl implements  UserService{
                 .nome(request.nome())
                 .email(request.email())
                 .senha(passwordEncoder.encode(request.senha()))
-                .curso(request.curso())
+                .curso(request.curso() == null ? "" : request.curso())
                 .tipoUsuario(tipo.getValor())
                 .termoAceito(true)
                 .emailVerificado(false)
@@ -145,7 +146,8 @@ public class UserServiceImpl implements  UserService{
 
     @Override
     public UserRankingResponseDTO getUserRankingStatus() {
-        var topUsers = userRepository.findTop10ByOrderByXpTotalDesc();
+        String tipoAluno = TipoUsuario.ALUNO.getValor();
+        var topUsers = userRepository.findTop10ByTipoUsuarioIgnoreCaseOrderByXpTotalDesc(tipoAluno);
         var top10 = topUsers.stream()
                 .map(u -> new RankingDTO(
                         u.getIdUsuario(),
@@ -159,8 +161,11 @@ public class UserServiceImpl implements  UserService{
         RankingDTO usuarioAtual = null;
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof User user) {
+            if (!tipoAluno.equalsIgnoreCase(user.getTipoUsuario())) {
+                return new UserRankingResponseDTO(top10, null);
+            }
             int xp = user.getXpTotal() == null ? 0 : user.getXpTotal();
-            long posicao = userRepository.countByXpTotalGreaterThan(xp) + 1;
+            long posicao = userRepository.countByTipoUsuarioIgnoreCaseAndXpTotalGreaterThan(tipoAluno, xp) + 1;
             usuarioAtual = new RankingDTO(
                     user.getIdUsuario(),
                     user.getNome(),
@@ -194,6 +199,53 @@ public class UserServiceImpl implements  UserService{
                 .ultimoCheckinEm(salvo.getUltimoCheckinEm())
                 .acessoBloqueado(Boolean.TRUE.equals(salvo.getAcessoBloqueado()))
                 .mensagem(bloqueado ? "Acesso bloqueado com sucesso." : "Acesso liberado com sucesso.")
+                .build();
+    }
+
+    @Override
+    public UserResponseDTO createStaffUser(CreateStaffUserRequestDTO request) {
+        if (userRepository.existsByEmail(request.email())) {
+            return UserResponseDTO.builder()
+                    .mensagem("E-mail já cadastrado!!")
+                    .build();
+        }
+
+        TipoUsuario tipo = request.tipoUsuario();
+        if (tipo == null || tipo == TipoUsuario.ALUNO) {
+            return UserResponseDTO.builder()
+                    .mensagem("Tipo de usuário inválido para cadastro por coordenação.")
+                    .build();
+        }
+
+        User newUser = User.builder()
+                .nome(request.nome())
+                .email(request.email())
+                .senha(passwordEncoder.encode(request.senha()))
+                .curso(request.curso() == null ? "" : request.curso())
+                .tipoUsuario(tipo.getValor())
+                .termoAceito(true)
+                .emailVerificado(true)
+                .acessoBloqueado(false)
+                .xpTotal(0)
+                .nivel(1)
+                .streakAtual(0)
+                .build();
+
+        User salvo = userRepository.save(newUser);
+        return UserResponseDTO.builder()
+                .idUsuario(salvo.getIdUsuario())
+                .nome(salvo.getNome())
+                .email(salvo.getEmail())
+                .curso(salvo.getCurso())
+                .tipoUsuario(TipoUsuario.fromString(salvo.getTipoUsuario()))
+                .termoAceito(salvo.getTermoAceito())
+                .xpTotal(salvo.getXpTotal())
+                .nivel(salvo.getNivel())
+                .streakAtual(salvo.getStreakAtual())
+                .maiorStreak(salvo.getMaiorStreak())
+                .ultimoCheckinEm(salvo.getUltimoCheckinEm())
+                .acessoBloqueado(Boolean.TRUE.equals(salvo.getAcessoBloqueado()))
+                .mensagem("Usuário criado com sucesso.")
                 .build();
     }
 

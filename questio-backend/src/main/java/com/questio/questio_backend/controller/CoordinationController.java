@@ -3,7 +3,9 @@ package com.questio.questio_backend.controller;
 import com.questio.questio_backend.dto.ClassRequestDTO;
 import com.questio.questio_backend.dto.ClassResponseDTO;
 import com.questio.questio_backend.dto.AcessoRequestDTO;
+import com.questio.questio_backend.dto.CreateStaffUserRequestDTO;
 import com.questio.questio_backend.dto.EnrolmentRequestDTO;
+import com.questio.questio_backend.dto.UserResponseDTO;
 import com.questio.questio_backend.service.ClassService;
 import com.questio.questio_backend.service.UserService;
 import jakarta.validation.Valid;
@@ -59,6 +61,16 @@ public class CoordinationController {
             @RequestBody @Valid AcessoRequestDTO dto
     ) {
         return ResponseEntity.ok(userService.setAcessoBloqueado(idUsuario, Boolean.TRUE.equals(dto.acessoBloqueado())));
+    }
+
+    @PostMapping("/usuarios")
+    @PreAuthorize("hasRole('COORDENACAO')")
+    public ResponseEntity<UserResponseDTO> criarUsuarioStaff(@RequestBody @Valid CreateStaffUserRequestDTO dto) {
+        UserResponseDTO response = userService.createStaffUser(dto);
+        if (response.idUsuario() == null) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
     }
 
 }

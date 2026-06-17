@@ -10,7 +10,9 @@ import type {
   CreateTaskPayload,
   Curso,
   CursoPayload,
+  CursoUpdatePayload,
   Disciplina,
+  DisciplinaPayload,
   MatriculaPayload,
   PerformanceStudent,
   PerformanceTurma,
@@ -82,6 +84,14 @@ export async function createCurso(payload: CursoPayload): Promise<Curso> {
   return normalizeCurso(data);
 }
 
+export async function updateCurso(
+  idCurso: string,
+  payload: CursoUpdatePayload,
+): Promise<Curso> {
+  const { data } = await api.put(`/academic/cursos/${idCurso}`, payload);
+  return normalizeCurso(data);
+}
+
 export async function getDisciplinasByCursoSemestre(
   idCurso: string,
   semestre?: number | null,
@@ -91,6 +101,14 @@ export async function getDisciplinasByCursoSemestre(
   });
 
   return Array.isArray(data) ? data.map(normalizeDisciplina) : [];
+}
+
+export async function createDisciplina(
+  idCurso: string,
+  payload: DisciplinaPayload,
+): Promise<Disciplina> {
+  const { data } = await api.post(`/academic/cursos/${idCurso}/disciplinas`, payload);
+  return normalizeDisciplina(data);
 }
 
 export async function getProfessores(): Promise<Professor[]> {

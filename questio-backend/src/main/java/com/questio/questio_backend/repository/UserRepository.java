@@ -24,6 +24,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countByXpTotalGreaterThan(int xpTotal);
 
+    List<User> findTop10ByTipoUsuarioIgnoreCaseOrderByXpTotalDesc(String tipoUsuario);
+
+    long countByTipoUsuarioIgnoreCaseAndXpTotalGreaterThan(String tipoUsuario, int xpTotal);
+
     List<User> findByUltimaAtividadeEmBeforeAndStreakAtualGreaterThan(java.time.LocalDateTime data, Integer streakAtual);
 
     List<User> findByUltimoCheckinEmBeforeAndStreakAtualGreaterThan(java.time.LocalDateTime data, Integer streakAtual);

@@ -30,6 +30,10 @@ public class SecurityFilter extends OncePerRequestFilter {
                 var login = tokenService.validateToken(token);
                 if (login != null && !login.isEmpty()) {
                     userRepository.findByEmail(login).ifPresent(user -> {
+                        if (Boolean.TRUE.equals(user.getAcessoBloqueado())
+                                || Boolean.FALSE.equals(user.getEmailVerificado())) {
+                            return;
+                        }
                         var authentication = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities()
                         );

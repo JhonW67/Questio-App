@@ -2,6 +2,7 @@ package com.questio.questio_backend.controller;
 
 import com.questio.questio_backend.dto.CursoRequestDTO;
 import com.questio.questio_backend.dto.CursoResponseDTO;
+import com.questio.questio_backend.dto.CursoUpdateRequestDTO;
 import com.questio.questio_backend.dto.DisciplinaRequestDTO;
 import com.questio.questio_backend.dto.DisciplinaResponseDTO;
 import com.questio.questio_backend.service.AcademicService;
@@ -48,5 +49,14 @@ public class AcademicController {
             @RequestBody @Valid DisciplinaRequestDTO dto
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(academicService.criarDisciplina(idCurso, dto));
+    }
+
+    @PutMapping("/cursos/{idCurso}")
+    @PreAuthorize("hasRole('COORDENACAO')")
+    public ResponseEntity<CursoResponseDTO> atualizarCurso(
+            @PathVariable UUID idCurso,
+            @RequestBody @Valid CursoUpdateRequestDTO dto
+    ) {
+        return ResponseEntity.ok(academicService.atualizarCurso(idCurso, dto));
     }
 }

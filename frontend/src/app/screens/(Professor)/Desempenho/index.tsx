@@ -18,6 +18,7 @@ import {
   evaluateSubmission,
   getPerformanceTurmas,
   getTurmaPerformance,
+  openAttachmentUrl,
 } from "../../../../services/api";
 import type {
   PerformancePendingSubmission,
@@ -190,6 +191,14 @@ export default function Desempenho() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function abrirAnexo(path: string) {
+    try {
+      await openAttachmentUrl(path);
+    } catch {
+      Alert.alert("Erro", "Nao foi possivel abrir o anexo agora.");
     }
   }
 
@@ -412,9 +421,18 @@ export default function Desempenho() {
                   <Text style={[styles.respostaLabel, { marginTop: 12 }]}>
                     Anexo enviado
                   </Text>
-                  <Text style={styles.respostaTexto}>
-                    {submissaoSelecionada.arquivoNome}
-                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      submissaoSelecionada.arquivoUrl
+                        ? abrirAnexo(submissaoSelecionada.arquivoUrl)
+                        : null
+                    }
+                  >
+                    <Text style={[styles.respostaTexto, { color: "#4D9EFF" }]}>
+                      {submissaoSelecionada.arquivoNome}
+                    </Text>
+                  </TouchableOpacity>
                 </>
               ) : null}
             </View>

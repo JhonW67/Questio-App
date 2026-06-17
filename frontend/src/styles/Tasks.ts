@@ -123,6 +123,12 @@ export const styles = StyleSheet.create({
     color: '#8a99b8',
     fontSize: 12,
   },
+  linkText: {
+    color: '#4d9eff',
+    fontSize: 12,
+    marginTop: 2,
+    textDecorationLine: 'underline',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',

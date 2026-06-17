@@ -31,6 +31,7 @@ public class DesempenhoService {
     private final ClassRepository classRepository;
     private final TaskRepository taskRepository;
     private final SubmitRepository submitRepository;
+    private final TaskService taskService;
 
     private User getProfessorAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -167,7 +168,9 @@ public class DesempenhoService {
                 item.getFeedback(),
                 item.getResposta(),
                 item.getArquivoNome(),
-                item.getArquivoUrl() != null ? "/api/tarefas/submissoes/" + item.getIdSubmit() + "/arquivo" : null
+                item.getArquivoUrl() != null
+                        ? taskService.gerarLinkTemporarioDeAnexo(item, getProfessorAutenticado().getIdUsuario())
+                        : null
         );
     }
 }

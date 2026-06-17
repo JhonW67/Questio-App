@@ -92,4 +92,27 @@ public class TaskController {
                 )
                 .body(resource);
     }
+
+    @GetMapping("/submissoes/{idSubmissao}/arquivo/public")
+    public ResponseEntity<FileSystemResource> baixarArquivoSubmissaoPublico(
+            @PathVariable UUID idSubmissao,
+            @RequestParam("token") String token
+    ) {
+        SubmitTask submissao = tarefaService.buscarSubmissaoPorToken(idSubmissao, token);
+        var path = tarefaService.carregarArquivoSubmissaoPorToken(idSubmissao, token);
+        FileSystemResource resource = new FileSystemResource(path);
+        MediaType mediaType = MediaTypeFactory.getMediaType(resource)
+                .orElse(MediaType.APPLICATION_OCTET_STREAM);
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(submissao.getArquivoNome() != null ? submissao.getArquivoNome() : resource.getFilename())
+                                .build()
+                                .toString()
+                )
+                .body(resource);
+    }
 }

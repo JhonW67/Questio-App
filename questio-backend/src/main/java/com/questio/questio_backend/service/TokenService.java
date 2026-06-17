@@ -3,6 +3,7 @@ package com.questio.questio_backend.service;
 import com.questio.questio_backend.entity.User;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class TokenService {
@@ -46,6 +48,35 @@ public class TokenService {
                     .getSubject();
         } catch (JwtException e) {
             return "";
+        }
+    }
+
+    public String generateAttachmentToken(UUID idSubmissao, UUID idUsuario, long expirationInMs) {
+        return Jwts.builder()
+                .subject("attachment")
+                .claim("submissionId", idSubmissao.toString())
+                .claim("userId", idUsuario.toString())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expirationInMs))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public Claims validateAttachmentToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            if (!"attachment".equals(claims.getSubject())) {
+                return null;
+            }
+
+            return claims;
+        } catch (JwtException e) {
+            return null;
         }
     }
 }

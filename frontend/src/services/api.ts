@@ -2,6 +2,7 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type { DocumentPickerAsset } from "expo-document-picker";
+import * as Linking from "expo-linking";
 import type {
   AcademicEvent,
   AcademicEventPayload,
@@ -45,6 +46,8 @@ const getDefaultApiUrl = () => {
 
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim() || getDefaultApiUrl();
+
+const API_ROOT_URL = API_URL.replace(/\/api\/?$/, "");
 
 const api = axios.create({
   baseURL: API_URL,
@@ -176,6 +179,19 @@ export async function submitStudentTask(payload: {
     },
   );
   return String(data?.mensagem ?? "Tarefa enviada com sucesso.");
+}
+
+export function resolveApiAssetUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  return path.startsWith("/") ? `${API_ROOT_URL}${path}` : `${API_ROOT_URL}/${path}`;
+}
+
+export async function openAttachmentUrl(path: string) {
+  const absoluteUrl = resolveApiAssetUrl(path);
+  await Linking.openURL(absoluteUrl);
 }
 
 export async function getPerformanceTurmas(): Promise<PerformanceTurma[]> {

@@ -32,6 +32,7 @@ public class TaskService {
     private final ClassRepository turmaRepository;
     private final GamificationService gamificationService;
     private final SubmissionStorageService submissionStorageService;
+    private final TokenService tokenService;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -165,7 +166,7 @@ public class TaskService {
                             submissao != null ? submissao.getStatus() : null,
                             submissao != null ? submissao.getEnviadoEm() : null,
                             submissao != null ? submissao.getArquivoNome() : null,
-                            submissao != null ? buildAttachmentUrl(submissao) : null
+                            submissao != null ? buildAttachmentUrl(submissao, aluno.getIdUsuario()) : null
                     );
                 })
                 .toList();
@@ -200,7 +201,51 @@ public class TaskService {
         return submissionStorageService.load(submissao.getArquivoUrl());
     }
 
-    private String buildAttachmentUrl(SubmitTask submissao) {
-        return "/api/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo";
+    public java.nio.file.Path carregarArquivoSubmissaoPorToken(UUID idSubmissao, String token) {
+        SubmitTask submissao = submissaoRepository.findById(idSubmissao)
+                .orElseThrow(() -> new RuntimeException("Submissão não encontrada"));
+
+        var claims = tokenService.validateAttachmentToken(token);
+        if (claims == null) {
+            throw new RuntimeException("Token de anexo inválido.");
+        }
+
+        String submissionId = claims.get("submissionId", String.class);
+        String userId = claims.get("userId", String.class);
+
+        if (!idSubmissao.toString().equals(submissionId)) {
+            throw new RuntimeException("Token de anexo inválido.");
+        }
+
+        boolean isAlunoDaSubmissao = submissao.getAluno() != null
+                && submissao.getAluno().getIdUsuario() != null
+                && submissao.getAluno().getIdUsuario().toString().equals(userId);
+
+        boolean isProfessorDaTurma = submissao.getTarefa() != null
+                && submissao.getTarefa().getTurma() != null
+                && submissao.getTarefa().getTurma().getProfessor() != null
+                && submissao.getTarefa().getTurma().getProfessor().getIdUsuario() != null
+                && submissao.getTarefa().getTurma().getProfessor().getIdUsuario().toString().equals(userId);
+
+        if (!isAlunoDaSubmissao && !isProfessorDaTurma) {
+            throw new RuntimeException("Token de anexo inválido.");
+        }
+
+        return submissionStorageService.load(submissao.getArquivoUrl());
+    }
+
+    public SubmitTask buscarSubmissaoPorToken(UUID idSubmissao, String token) {
+        carregarArquivoSubmissaoPorToken(idSubmissao, token);
+        return submissaoRepository.findById(idSubmissao)
+                .orElseThrow(() -> new RuntimeException("Submissão não encontrada"));
+    }
+
+    public String gerarLinkTemporarioDeAnexo(SubmitTask submissao, UUID idUsuario) {
+        String token = tokenService.generateAttachmentToken(submissao.getIdSubmit(), idUsuario, 5 * 60 * 1000L);
+        return "/api/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo/public?token=" + token;
+    }
+
+    private String buildAttachmentUrl(SubmitTask submissao, UUID idUsuario) {
+        return gerarLinkTemporarioDeAnexo(submissao, idUsuario);
     }
 }

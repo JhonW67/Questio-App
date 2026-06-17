@@ -15,7 +15,11 @@ import * as DocumentPicker from "expo-document-picker";
 import { styles } from "../../../../styles/Tasks";
 import TaskFilterTabs, { TaskFilter } from "../../../../components/pill/pill";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
-import { getStudentTasks, submitStudentTask } from "../../../../services/api";
+import {
+  getStudentTasks,
+  openAttachmentUrl,
+  submitStudentTask,
+} from "../../../../services/api";
 import type { StudentTask } from "../../../../types/academic";
 
 export default function Tasks() {
@@ -78,6 +82,14 @@ export default function Tasks() {
 
     if (!result.canceled && result.assets.length > 0) {
       setArquivoSelecionado(result.assets[0]);
+    }
+  }
+
+  async function abrirAnexo(path: string) {
+    try {
+      await openAttachmentUrl(path);
+    } catch {
+      Alert.alert("Erro", "Nao foi possivel abrir o anexo agora.");
     }
   }
 
@@ -209,9 +221,16 @@ export default function Tasks() {
                       Status: {tarefa.statusSubmissao || "Concluido"}
                     </Text>
                     {tarefa.arquivoNome ? (
-                      <Text style={styles.metaText}>
-                        Anexo: {tarefa.arquivoNome}
-                      </Text>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() =>
+                          tarefa.arquivoUrl ? abrirAnexo(tarefa.arquivoUrl) : null
+                        }
+                      >
+                        <Text style={styles.linkText}>
+                          Anexo: {tarefa.arquivoNome}
+                        </Text>
+                      </TouchableOpacity>
                     ) : null}
                   </>
                 ) : null}

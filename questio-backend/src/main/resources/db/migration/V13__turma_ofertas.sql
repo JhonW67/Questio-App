@@ -14,7 +14,7 @@ ALTER TABLE IF EXISTS tarefas
     ADD COLUMN IF NOT EXISTS id_oferta UUID;
 
 ALTER TABLE IF EXISTS tarefas
-    ADD CONSTRAINT IF NOT EXISTS fk_tarefas_oferta
+    ADD CONSTRAINT fk_tarefas_oferta
     FOREIGN KEY (id_oferta) REFERENCES turma_ofertas(id_oferta) ON DELETE SET NULL;
 
 INSERT INTO turma_ofertas (id_turma, id_disciplina, id_professor, ativa)

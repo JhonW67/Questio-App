@@ -155,7 +155,11 @@ export default function Home() {
           ]}
         >
           <TouchableOpacity
-            style={[styles.btnAcao, { borderColor: "rgba(46, 213, 115, 0.2)" }]}
+            style={[
+              styles.btnAcao,
+              { borderColor: "rgba(46, 213, 115, 0.2)" },
+              isCompact && { width: "100%" },
+            ]}
             activeOpacity={0.7}
             onPress={() => router.push("/screens/(Coordenador)/Grade")}
           >
@@ -164,7 +168,11 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btnAcao, { borderColor: "rgba(22, 199, 231, 0.2)" }]}
+            style={[
+              styles.btnAcao,
+              { borderColor: "rgba(22, 199, 231, 0.2)" },
+              isCompact && { width: "100%" },
+            ]}
             activeOpacity={0.7}
             onPress={() => router.push("/screens/(Coordenador)/Cursos")}
           >
@@ -173,12 +181,29 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btnAcao, { borderColor: "rgba(108, 92, 231, 0.2)" }]}
+            style={[
+              styles.btnAcao,
+              { borderColor: "rgba(108, 92, 231, 0.2)" },
+              isCompact && { width: "100%" },
+            ]}
             activeOpacity={0.7}
             onPress={() => router.push("/screens/(Coordenador)/Evento")}
           >
             <Feather name="bell" size={20} color="#6c5ce7" />
             <Text style={styles.labelAcao}>Emitir Eventos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.btnAcao,
+              { borderColor: "rgba(255, 159, 67, 0.2)" },
+              isCompact && { width: "100%" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/screens/(Coordenador)/Acesso")}
+          >
+            <Feather name="unlock" size={20} color="#ff9f43" />
+            <Text style={styles.labelAcao}>Liberar Acesso</Text>
           </TouchableOpacity>
         </View>
 

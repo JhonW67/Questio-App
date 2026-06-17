@@ -89,12 +89,13 @@ export const styles = StyleSheet.create({
   },
   gridAcoes: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     gap: 12,
     marginBottom: 28,
   },
   btnAcao: {
-    flex: 1,
+    width: "48%",
     backgroundColor: "#0B1526",
     borderRadius: 14,
     borderWidth: 1,

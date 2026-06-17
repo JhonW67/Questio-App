@@ -90,6 +90,23 @@ export interface RegisterPayload {
   tipoUsuario: "ALUNO" | "PROFESSOR" | "COORDENACAO";
 }
 
+export interface CreateStaffUserPayload {
+  nome: string;
+  email: string;
+  senha: string;
+  curso?: string;
+  tipoUsuario: "PROFESSOR" | "COORDENACAO";
+}
+
+export interface CoordinationUser {
+  idUsuario: string;
+  nome: string;
+  email: string;
+  curso: string;
+  tipoUsuario: string;
+  acessoBloqueado: boolean;
+}
+
 export interface CreateTaskPayload {
   titulo: string;
   descricao: string;
@@ -272,6 +289,17 @@ export function normalizeAluno(raw: any): Aluno {
     idUsuario: String(raw?.idUsuario ?? raw?.id ?? ""),
     nome: String(raw?.nome ?? ""),
     email: String(raw?.email ?? ""),
+  };
+}
+
+export function normalizeCoordinationUser(raw: any): CoordinationUser {
+  return {
+    idUsuario: String(raw?.idUsuario ?? raw?.id ?? ""),
+    nome: String(raw?.nome ?? ""),
+    email: String(raw?.email ?? ""),
+    curso: String(raw?.curso ?? ""),
+    tipoUsuario: String(raw?.tipoUsuario ?? raw?.tipo ?? ""),
+    acessoBloqueado: Boolean(raw?.acessoBloqueado ?? false),
   };
 }
 

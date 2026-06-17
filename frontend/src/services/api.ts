@@ -9,7 +9,9 @@ import type {
   AcademicEvent,
   AcademicEventPayload,
   Aluno,
+  CoordinationUser,
   CreateTaskPayload,
+  CreateStaffUserPayload,
   Curso,
   CursoPayload,
   CursoUpdatePayload,
@@ -27,6 +29,7 @@ import type {
 import {
   normalizeAcademicEvent,
   normalizeAluno,
+  normalizeCoordinationUser,
   normalizeCurso,
   normalizeDisciplina,
   normalizePerformanceStudent,
@@ -149,9 +152,19 @@ export async function getProfessores(): Promise<Professor[]> {
   return Array.isArray(data) ? data.map(normalizeProfessor) : [];
 }
 
+export async function getProfessoresFull(): Promise<CoordinationUser[]> {
+  const { data } = await api.get("/user/professores");
+  return Array.isArray(data) ? data.map(normalizeCoordinationUser) : [];
+}
+
 export async function getAlunos(): Promise<Aluno[]> {
   const { data } = await api.get("/user/alunos");
   return Array.isArray(data) ? data.map(normalizeAluno) : [];
+}
+
+export async function getAlunosFull(): Promise<CoordinationUser[]> {
+  const { data } = await api.get("/user/alunos");
+  return Array.isArray(data) ? data.map(normalizeCoordinationUser) : [];
 }
 
 export async function getTurmas(): Promise<Turma[]> {
@@ -177,6 +190,26 @@ export async function deleteTurma(idTurma: string): Promise<void> {
 export async function registerUser(payload: RegisterPayload) {
   const { data } = await api.post("/auth/register", payload);
   return data;
+}
+
+export async function createStaffUser(
+  payload: CreateStaffUserPayload,
+): Promise<CoordinationUser> {
+  const { data } = await api.post("/coordenacao/usuarios", payload);
+  return normalizeCoordinationUser(data);
+}
+
+export async function setUserAccess(payload: {
+  idUsuario: string;
+  acessoBloqueado: boolean;
+}): Promise<CoordinationUser> {
+  const { data } = await api.patch(
+    `/coordenacao/usuarios/${payload.idUsuario}/acesso`,
+    {
+      acessoBloqueado: payload.acessoBloqueado,
+    },
+  );
+  return normalizeCoordinationUser(data);
 }
 
 export async function createTask(payload: CreateTaskPayload) {

@@ -87,8 +87,6 @@ export default function Rankings() {
         },
       });
 
-      console.log("Ranking:", JSON.stringify(data, null, 2));
-
       setRanking(data);
     } catch (error: any) {
       console.log(error?.response?.data || error);

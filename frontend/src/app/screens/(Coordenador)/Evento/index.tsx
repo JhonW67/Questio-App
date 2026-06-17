@@ -154,7 +154,7 @@ export default function CriarEvento() {
         idDisciplina: disciplinaSelecionada.idDisciplina,
         tituloEvento: tituloEvento.trim(),
         descricaoEvento: descricaoEvento.trim(),
-        dataEvento: dataEvento.toISOString(),
+        dataEvento: dataEvento.toISOString().slice(0, 19),
         tipo: tipoEvento,
       });
 

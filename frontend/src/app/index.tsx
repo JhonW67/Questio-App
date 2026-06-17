@@ -1,12 +1,14 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "../context/AuthContext";
 
 export default function Index() {
   const router = useRouter();
+  const { user, loading } = useAuth();
+  const [splashReady, setSplashReady] = useState(false);
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.7)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
@@ -35,30 +37,33 @@ export default function Index() {
       }),
     ]).start();
 
-    const timer = setTimeout(async () => {
-      const storedUser = await AsyncStorage.getItem("@Questio:user");
-      const user = storedUser ? JSON.parse(storedUser) : null;
-      const token = user?.token;
-      const tipo = user?.tipoUsuario;
-
-      if (!token) {
-        router.replace("/screens/(Authenticator)/Login");
-        return;
-      }
-
-      if (tipo === "Aluno") {
-        router.replace("/screens/(Aluno)/Home");
-      } else if (tipo === "Professor") {
-        router.replace("/screens/(Professor)/Home");
-      } else if (tipo === "Coordenacao") {
-        router.replace("/screens/(Coordenador)/Home");
-      } else {
-        router.replace("/screens/(Authenticator)/Login");
-      }
+    const timer = setTimeout(() => {
+      setSplashReady(true);
     }, 2500);
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!splashReady || loading) {
+      return;
+    }
+
+    if (!user?.token) {
+      router.replace("/screens/(Authenticator)/Login");
+      return;
+    }
+
+    if (user.tipoUsuario === "Aluno") {
+      router.replace("/screens/(Aluno)/Home");
+    } else if (user.tipoUsuario === "Professor") {
+      router.replace("/screens/(Professor)/Home");
+    } else if (user.tipoUsuario === "Coordenacao") {
+      router.replace("/screens/(Coordenador)/Home");
+    } else {
+      router.replace("/screens/(Authenticator)/Login");
+    }
+  }, [loading, router, splashReady, user?.token, user?.tipoUsuario]);
 
   return (
     <View style={styles.container}>

@@ -34,7 +34,6 @@ export default function Home() {
     totalTarefas,
     totalConcluidas,
     progressoSemanal,
-    carregarTarefas,
   } = useTarefas();
 
   const carregarPerfilAluno = async () => {
@@ -59,10 +58,6 @@ export default function Home() {
 
       if (response.data) {
         setUserData(response.data);
-        console.log(
-          "=== OFENSIVA DUOLINGO ATUALIZADA POR ACESSO ===",
-          response.data.streakAtual,
-        );
       }
     } catch (error: any) {
       console.error(
@@ -73,7 +68,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    carregarTarefas();
     carregarPerfilAluno();
     executarCheckinDiario();
   }, []);

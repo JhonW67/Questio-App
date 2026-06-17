@@ -3,6 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type { DocumentPickerAsset } from "expo-document-picker";
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import type {
   AcademicEvent,
   AcademicEventPayload,
@@ -55,6 +57,8 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
+let handlingUnauthorized = false;
+
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -70,6 +74,35 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  },
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error?.response?.status;
+    if (status === 401 && !handlingUnauthorized) {
+      handlingUnauthorized = true;
+      try {
+        await SecureStore.deleteItemAsync(SECURE_STORE_TOKEN_KEY);
+        await AsyncStorage.removeItem("@Questio:user");
+        await AsyncStorage.removeItem("token");
+        await AsyncStorage.removeItem("tipoUsuario");
+        await AsyncStorage.removeItem("@questio:token");
+      } catch {
+      }
+
+      try {
+        router.replace("/screens/(Authenticator)/Login");
+      } catch {
+      } finally {
+        setTimeout(() => {
+          handlingUnauthorized = false;
+        }, 300);
+      }
+    }
+
     return Promise.reject(error);
   },
 );

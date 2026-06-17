@@ -73,6 +73,15 @@ function extrairDadosDoToken(token: string) {
   }
 }
 
+function isTokenExpirado(token: string) {
+  const decoded = extrairDadosDoToken(token);
+  const exp = decoded?.exp;
+  if (!exp) {
+    return false;
+  }
+  return Date.now() >= Number(exp) * 1000;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UsuarioLogado | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +91,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const storedUser = await AsyncStorage.getItem("@Questio:user");
         if (storedUser) {
-          setUser(JSON.parse(storedUser));
+          const parsed = JSON.parse(storedUser) as UsuarioLogado;
+          if (parsed?.token && isTokenExpirado(parsed.token)) {
+            setUser(null);
+            await AsyncStorage.removeItem("@Questio:user");
+            await SecureStore.deleteItemAsync(SECURE_STORE_TOKEN_KEY);
+            await AsyncStorage.removeItem("token");
+            await AsyncStorage.removeItem("tipoUsuario");
+            await AsyncStorage.removeItem("@questio:token");
+            return;
+          }
+
+          setUser(parsed);
+
+          const storedToken = await SecureStore.getItemAsync(SECURE_STORE_TOKEN_KEY);
+          if (!storedToken && parsed?.token) {
+            await SecureStore.setItemAsync(SECURE_STORE_TOKEN_KEY, parsed.token);
+          }
         }
       } catch (e) {
         console.error("Erro ao carregar dados locais", e);
@@ -141,8 +166,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(dadosUsuario);
     await AsyncStorage.setItem("@Questio:user", JSON.stringify(dadosUsuario));
     await SecureStore.setItemAsync(SECURE_STORE_TOKEN_KEY, dadosUsuario.token);
-    await AsyncStorage.setItem("token", dadosUsuario.token);
-    await AsyncStorage.setItem("tipoUsuario", dadosUsuario.tipoUsuario);
 
     return dadosUsuario;
   }

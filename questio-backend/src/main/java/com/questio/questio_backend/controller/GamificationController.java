@@ -21,7 +21,6 @@ public class GamificationController {
     @PostMapping("/checkin")
     public ResponseEntity<UserResponseDTO> realizarCheckin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Usuário autenticado: " + (auth != null ? auth.getPrincipal() : "NENHUM"));
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
             throw new RuntimeException("Usuário não autenticado");
         }

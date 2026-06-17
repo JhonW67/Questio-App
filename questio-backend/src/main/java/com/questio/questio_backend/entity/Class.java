@@ -6,6 +6,8 @@ import lombok.*;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "turmas")
@@ -44,4 +46,8 @@ public class Class {
     @ManyToMany(mappedBy = "turmas")
     @Builder.Default
     private Set<User> alunos = new HashSet<>();
+
+    @OneToMany(mappedBy = "turma", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<TurmaOferta> ofertas = new ArrayList<>();
 }

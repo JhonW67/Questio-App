@@ -30,6 +30,10 @@ public class Task {
     @JoinColumn(name = "id_professor")
     private User professor;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_oferta")
+    private TurmaOferta oferta;
+
     @Column(nullable = false, length = 150)
     private String titulo;
 

@@ -20,13 +20,19 @@ export interface Curso {
 export interface Turma {
   idTurma: string;
   idCurso: string | null;
-  idDisciplina: string | null;
-  idProfessor: string | null;
   nome: string;
   nomeCurso: string | null;
-  nomeDisciplina: string | null;
-  nomeProfessor: string | null;
   semestre: number | null;
+  ativa: boolean;
+  ofertas: TurmaOferta[];
+}
+
+export interface TurmaOferta {
+  idOferta: string;
+  idDisciplina: string | null;
+  nomeDisciplina: string | null;
+  idProfessor: string | null;
+  nomeProfessor: string | null;
   ativa: boolean;
 }
 
@@ -71,10 +77,14 @@ export interface DisciplinaPayload {
 
 export interface TurmaPayload {
   nome: string;
-  idProfessor: string;
   idCurso: string;
-  idDisciplina: string;
   semestre: number;
+  ofertas: TurmaOfertaPayload[];
+}
+
+export interface TurmaOfertaPayload {
+  idDisciplina: string;
+  idProfessor: string;
 }
 
 export interface MatriculaPayload {
@@ -113,6 +123,7 @@ export interface CreateTaskPayload {
   prazo: string;
   pontos: number;
   idTurma: string;
+  idDisciplina: string;
 }
 
 export interface StudentTask {
@@ -247,32 +258,62 @@ export function normalizeTurma(raw: any): Turma {
       raw?.idCurso === null || raw?.idCurso === undefined
         ? null
         : String(raw.idCurso),
-    idDisciplina:
-      raw?.idDisciplina === null || raw?.idDisciplina === undefined
-        ? null
-        : String(raw.idDisciplina),
-    idProfessor:
-      raw?.idProfessor === null || raw?.idProfessor === undefined
-        ? null
-        : String(raw.idProfessor),
     nome: String(raw?.nome ?? ""),
     nomeCurso:
       raw?.nomeCurso === null || raw?.nomeCurso === undefined
         ? null
         : String(raw.nomeCurso),
-    nomeDisciplina:
-      raw?.nomeDisciplina === null || raw?.nomeDisciplina === undefined
-        ? null
-        : String(raw.nomeDisciplina),
-    nomeProfessor:
-      raw?.nomeProfessor === null || raw?.nomeProfessor === undefined
-        ? null
-        : String(raw.nomeProfessor),
     semestre:
       raw?.semestre === null || raw?.semestre === undefined
         ? null
         : Number(raw.semestre),
     ativa: Boolean(raw?.ativa ?? true),
+    ofertas: Array.isArray(raw?.ofertas)
+      ? raw.ofertas.map((oferta: any) => ({
+          idOferta: String(oferta?.idOferta ?? oferta?.id ?? ""),
+          idDisciplina:
+            oferta?.idDisciplina === null || oferta?.idDisciplina === undefined
+              ? null
+              : String(oferta.idDisciplina),
+          nomeDisciplina:
+            oferta?.nomeDisciplina === null ||
+            oferta?.nomeDisciplina === undefined
+              ? null
+              : String(oferta.nomeDisciplina),
+          idProfessor:
+            oferta?.idProfessor === null || oferta?.idProfessor === undefined
+              ? null
+              : String(oferta.idProfessor),
+          nomeProfessor:
+            oferta?.nomeProfessor === null || oferta?.nomeProfessor === undefined
+              ? null
+              : String(oferta.nomeProfessor),
+          ativa: Boolean(oferta?.ativa ?? true),
+        }))
+      : raw?.idDisciplina || raw?.idProfessor
+        ? [
+            {
+              idOferta: "",
+              idDisciplina:
+                raw?.idDisciplina === null || raw?.idDisciplina === undefined
+                  ? null
+                  : String(raw.idDisciplina),
+              nomeDisciplina:
+                raw?.nomeDisciplina === null || raw?.nomeDisciplina === undefined
+                  ? null
+                  : String(raw.nomeDisciplina),
+              idProfessor:
+                raw?.idProfessor === null || raw?.idProfessor === undefined
+                  ? null
+                  : String(raw.idProfessor),
+              nomeProfessor:
+                raw?.nomeProfessor === null || raw?.nomeProfessor === undefined
+                  ? null
+                  : String(raw.nomeProfessor),
+              ativa: Boolean(raw?.ativa ?? true),
+            },
+          ]
+        : [],
   };
 }
 

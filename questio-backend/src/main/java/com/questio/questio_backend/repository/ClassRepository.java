@@ -11,10 +11,9 @@ import java.util.UUID;
 
 @Repository
 public interface ClassRepository extends JpaRepository<Class, UUID> {
-    @EntityGraph(attributePaths = {"curso", "disciplina", "professor"})
+    @EntityGraph(attributePaths = {"curso", "ofertas", "ofertas.disciplina", "ofertas.professor"})
     List<Class> findAllByOrderByNomeAsc();
-    @EntityGraph(attributePaths = {"curso", "disciplina", "professor"})
-    List<Class> findByProfessorIdUsuarioOrderByNomeAsc(UUID idProfessor);
-    List<Class> findByDisciplinaIdDisciplinaOrderByNomeAsc(UUID idDisciplina);
-    List<Class> findByProfessorIdUsuarioAndDisciplinaIdDisciplinaOrderByNomeAsc(UUID idProfessor, UUID idDisciplina);
+
+    @EntityGraph(attributePaths = {"curso", "ofertas", "ofertas.disciplina", "ofertas.professor"})
+    List<Class> findDistinctByOfertasProfessorIdUsuarioOrderByNomeAsc(UUID idProfessor);
 }

@@ -12,6 +12,7 @@ import com.questio.questio_backend.entity.User;
 import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.SubmitRepository;
 import com.questio.questio_backend.repository.TaskRepository;
+import com.questio.questio_backend.repository.TurmaOfertaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class DesempenhoService {
     private final TaskRepository taskRepository;
     private final SubmitRepository submitRepository;
     private final TaskService taskService;
+    private final TurmaOfertaRepository turmaOfertaRepository;
 
     private User getProfessorAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -53,7 +55,7 @@ public class DesempenhoService {
     public List<DesempenhoTurmaDTO> listarTurmasDoProfessor() {
         User professor = getProfessorAutenticado();
 
-        return classRepository.findByProfessorIdUsuarioOrderByNomeAsc(professor.getIdUsuario()).stream()
+        return classRepository.findDistinctByOfertasProfessorIdUsuarioOrderByNomeAsc(professor.getIdUsuario()).stream()
                 .map(turma -> new DesempenhoTurmaDTO(turma.getIdClass(), turma.getNome()))
                 .toList();
     }
@@ -87,11 +89,11 @@ public class DesempenhoService {
             throw new RuntimeException("A submissão selecionada não possui turma vinculada.");
         }
 
-        UUID idProfessorDaTurma = submissao.getTarefa().getTurma().getProfessor() != null
-                ? submissao.getTarefa().getTurma().getProfessor().getIdUsuario()
+        UUID idProfessorDaTarefa = submissao.getTarefa().getProfessor() != null
+                ? submissao.getTarefa().getProfessor().getIdUsuario()
                 : null;
 
-        if (idProfessorDaTurma == null || !idProfessorDaTurma.equals(professor.getIdUsuario())) {
+        if (idProfessorDaTarefa == null || !idProfessorDaTarefa.equals(professor.getIdUsuario())) {
             throw new RuntimeException("Você não pode avaliar submissões de outra turma.");
         }
 
@@ -114,8 +116,7 @@ public class DesempenhoService {
         Class turma = classRepository.findById(idTurma)
                 .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
 
-        UUID idProfessorTurma = turma.getProfessor() != null ? turma.getProfessor().getIdUsuario() : null;
-        if (idProfessorTurma == null || !idProfessorTurma.equals(idProfessor)) {
+        if (!turmaOfertaRepository.existsByTurmaIdClassAndProfessorIdUsuario(turma.getIdClass(), idProfessor)) {
             throw new RuntimeException("Você não possui acesso a esta turma.");
         }
 

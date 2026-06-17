@@ -22,7 +22,7 @@ public class GamificationServiceImpl implements GamificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-        LocalDate hoje = LocalDate.now();
+        LocalDate hoje = LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
         LocalDateTime ultimoCheckinEm = user.getUltimoCheckinEm();
         LocalDate ultimoDia = ultimoCheckinEm == null ? null : ultimoCheckinEm.toLocalDate();
 
@@ -43,7 +43,7 @@ public class GamificationServiceImpl implements GamificationService {
             user.setMaiorStreak(user.getStreakAtual());
         }
 
-        LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime agora = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
         user.setUltimoCheckinEm(agora);
         user.setUltimaAtividadeEm(agora);
 

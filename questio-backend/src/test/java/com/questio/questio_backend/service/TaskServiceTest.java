@@ -6,6 +6,7 @@ import com.questio.questio_backend.entity.Class;
 import com.questio.questio_backend.entity.Curso;
 import com.questio.questio_backend.entity.Disciplina;
 import com.questio.questio_backend.entity.Task;
+import com.questio.questio_backend.entity.TurmaOferta;
 import com.questio.questio_backend.entity.User;
 import com.questio.questio_backend.entity.enums.TipoUsuario;
 import com.questio.questio_backend.repository.ClassRepository;
@@ -14,6 +15,7 @@ import com.questio.questio_backend.repository.DisciplinaRepository;
 import com.questio.questio_backend.repository.SubmitRepository;
 import com.questio.questio_backend.repository.TaskMaterialRepository;
 import com.questio.questio_backend.repository.TaskRepository;
+import com.questio.questio_backend.repository.TurmaOfertaRepository;
 import com.questio.questio_backend.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -57,6 +59,9 @@ class TaskServiceTest {
     @Autowired
     private TaskMaterialRepository taskMaterialRepository;
 
+    @Autowired
+    private TurmaOfertaRepository turmaOfertaRepository;
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
@@ -73,7 +78,8 @@ class TaskServiceTest {
                 "Resolver atividade da turma",
                 LocalDateTime.now().plusDays(3),
                 10,
-                turma.getIdClass()
+                turma.getIdClass(),
+                turma.getDisciplina().getIdDisciplina()
         ));
 
         assertThat(resposta.titulo()).isEqualTo("Quiz 1");
@@ -93,10 +99,11 @@ class TaskServiceTest {
                 "Tentativa em turma de outro professor",
                 LocalDateTime.now().plusDays(2),
                 12,
-                turma.getIdClass()
+                turma.getIdClass(),
+                turma.getDisciplina().getIdDisciplina()
         )))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Você só pode criar tarefas para turmas vinculadas ao seu perfil.");
+                .hasMessageContaining("Você não está vinculado a esta disciplina nesta turma.");
     }
 
     @Test
@@ -147,7 +154,8 @@ class TaskServiceTest {
                 "Leia os PDFs e responda",
                 LocalDateTime.now().plusDays(2),
                 10,
-                turma.getIdClass()
+                turma.getIdClass(),
+                turma.getDisciplina().getIdDisciplina()
         ));
 
         MockMultipartFile material = new MockMultipartFile(
@@ -214,13 +222,22 @@ class TaskServiceTest {
                 .cargaHoraria(80)
                 .build());
 
-        return classRepository.save(Class.builder()
+        Class turma = classRepository.save(Class.builder()
                 .nome(nomeTurma)
                 .professor(professor)
                 .curso(curso)
                 .disciplina(disciplina)
                 .semestre(1)
                 .build());
+
+        turmaOfertaRepository.save(TurmaOferta.builder()
+                .turma(turma)
+                .disciplina(disciplina)
+                .professor(professor)
+                .ativa(true)
+                .build());
+
+        return turma;
     }
 
     private Class salvarTurmaComAluno(String nomeTurma, User professor, User aluno) {

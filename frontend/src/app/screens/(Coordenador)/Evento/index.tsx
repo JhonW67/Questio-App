@@ -56,6 +56,7 @@ export default function CriarEvento() {
   const [showSemestreModal, setShowSemestreModal] = useState(false);
   const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [showProfessorModal, setShowProfessorModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tituloEvento, setTituloEvento] = useState("");
   const [descricaoEvento, setDescricaoEvento] = useState("");
@@ -105,21 +106,34 @@ export default function CriarEvento() {
     return turmas.filter(
       (item) =>
         item.idCurso === cursoSelecionado.idCurso &&
-        item.idDisciplina === disciplinaSelecionada.idDisciplina &&
+        item.ofertas.some(
+          (oferta) => oferta.idDisciplina === disciplinaSelecionada.idDisciplina,
+        ) &&
         item.semestre === semestreSelecionado.value,
     );
   }, [cursoSelecionado, disciplinaSelecionada, semestreSelecionado.value, turmas]);
 
-  const professorSelecionado = useMemo(() => {
+  const professoresDaTurmaDisciplina = useMemo(() => {
     if (!turmaSelecionada) {
-      return null;
+      return [];
     }
 
-    return {
-      idProfessor: turmaSelecionada.idProfessor,
-      nomeProfessor: turmaSelecionada.nomeProfessor,
-    };
-  }, [turmaSelecionada]);
+    return turmaSelecionada.ofertas.filter(
+      (oferta) => oferta.idDisciplina === disciplinaSelecionada?.idDisciplina,
+    );
+  }, [disciplinaSelecionada?.idDisciplina, turmaSelecionada]);
+
+  const [idProfessorSelecionado, setIdProfessorSelecionado] = useState<string | null>(
+    null,
+  );
+
+  const professorSelecionado = useMemo(
+    () =>
+      professoresDaTurmaDisciplina.find(
+        (oferta) => oferta.idProfessor === idProfessorSelecionado,
+      ) ?? null,
+    [idProfessorSelecionado, professoresDaTurmaDisciplina],
+  );
 
   const handleCreateEvento = async () => {
     if (!cursoSelecionado) {
@@ -162,6 +176,7 @@ export default function CriarEvento() {
       setDescricaoEvento("");
       setTipoEvento("comunicado");
       setDataEvento(new Date());
+      setIdProfessorSelecionado(null);
       Alert.alert("Sucesso", "Evento enviado para o painel do professor.");
     } catch (err: any) {
       Alert.alert(
@@ -264,11 +279,20 @@ export default function CriarEvento() {
         <View style={[styles.row, isCompact && styles.rowCompact]}>
           <View style={styles.flexField}>
             <Text style={styles.label}>Professor</Text>
-            <View style={[styles.pickerFake, styles.disabledPicker]}>
+              <TouchableOpacity
+                style={styles.pickerFake}
+                activeOpacity={0.8}
+                onPress={() => setShowProfessorModal(true)}
+                disabled={!turmaSelecionada || professoresDaTurmaDisciplina.length === 0}
+              >
               <Text style={styles.pickerFakeText}>
-                {professorSelecionado?.nomeProfessor || "Definido pela turma"}
+                  {professorSelecionado?.nomeProfessor ||
+                    (turmaSelecionada
+                      ? "Selecione o professor"
+                      : "Definido após escolher a turma")}
               </Text>
-            </View>
+                <Feather name="chevron-down" size={16} color="#7C8DB5" />
+              </TouchableOpacity>
           </View>
 
           <View style={styles.flexField}>
@@ -447,6 +471,7 @@ export default function CriarEvento() {
         onSelect={(item) => {
           setDisciplinaSelecionada(item);
           setTurmaSelecionada(null);
+          setIdProfessorSelecionado(null);
         }}
       />
 
@@ -461,10 +486,30 @@ export default function CriarEvento() {
         keyExtractor={(item) => item.idTurma}
         labelExtractor={(item) => item.nome}
         subtitleExtractor={(item) =>
-          `${item.nomeProfessor || "Sem professor"} • ${item.semestre ?? "-"}º semestre`
+          `${item.ofertas.length} disciplina(s) • ${item.semestre ?? "-"}º semestre`
         }
         onClose={() => setShowTurmaModal(false)}
-        onSelect={(item) => setTurmaSelecionada(item)}
+        onSelect={(item) => {
+          setTurmaSelecionada(item);
+          const primeiraOferta = item.ofertas.find(
+            (oferta) => oferta.idDisciplina === disciplinaSelecionada?.idDisciplina,
+          );
+          setIdProfessorSelecionado(primeiraOferta?.idProfessor ?? null);
+        }}
+      />
+
+      <EntityPicker
+        visible={showProfessorModal}
+        title="Selecionar professor"
+        items={professoresDaTurmaDisciplina}
+        selectedKey={idProfessorSelecionado}
+        searchPlaceholder="Buscar professor"
+        emptyText="Nenhum professor vinculado a esta disciplina na turma."
+        keyExtractor={(item) => item.idOferta}
+        labelExtractor={(item) => item.nomeProfessor || "Professor"}
+        subtitleExtractor={(item) => item.nomeDisciplina || "Disciplina"}
+        onClose={() => setShowProfessorModal(false)}
+        onSelect={(item) => setIdProfessorSelecionado(item.idProfessor)}
       />
     </View>
   );

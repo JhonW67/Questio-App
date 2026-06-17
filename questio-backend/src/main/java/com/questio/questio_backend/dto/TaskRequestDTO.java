@@ -21,5 +21,8 @@ public record TaskRequestDTO(
         Integer pontos,
 
         @NotNull
-        UUID idClass
+        UUID idTurma,
+
+        @NotNull
+        UUID idDisciplina
 ) {}

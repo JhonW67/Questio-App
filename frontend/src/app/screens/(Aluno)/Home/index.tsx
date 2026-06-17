@@ -38,7 +38,10 @@ export default function Home() {
 
   const carregarPerfilAluno = useCallback(async () => {
     try {
-      const { data } = await api.get("/user/me");
+      // 1. Tentamos fazer o POST de check-in logo que o aluno entra na Home.
+      // Nota: Se o seu Axios 'api' NÃO tiver '/api' no baseURL, mude para "/api/gamification/checkin"
+      const { data } = await api.post("/gamification/checkin");
+      
       setUserData((atual) => ({
         ...atual,
         streakAtual: data?.streakAtual ?? atual.streakAtual,
@@ -48,7 +51,23 @@ export default function Home() {
         xpTotal: data?.xpTotal ?? atual.xpTotal,
       }));
     } catch (error) {
-      console.error("Erro ao carregar perfil do aluno:", error);
+      console.error("Erro ao realizar check-in, buscando perfil padrão:", error);
+      
+      // 2. FALLBACK: Se o check-in falhar (ex: erro de rota ou servidor), 
+      // rodamos o GET antigo para o app não ficar em branco e não travar o aluno.
+      try {
+        const { data } = await api.get("/user/me");
+        setUserData((atual) => ({
+          ...atual,
+          streakAtual: data?.streakAtual ?? atual.streakAtual,
+          maiorStreak: data?.maiorStreak ?? atual.maiorStreak,
+          ultimoCheckinEm: data?.ultimoCheckinEm ?? atual.ultimoCheckinEm,
+          nivel: data?.nivel ?? atual.nivel,
+          xpTotal: data?.xpTotal ?? atual.xpTotal,
+        }));
+      } catch (err) {
+        console.error("Erro crítico ao carregar dados do aluno:", err);
+      }
     }
   }, []);
 
@@ -124,7 +143,7 @@ export default function Home() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Tarefas Pendentes</Text>
-              <TouchableOpacity onPress={() => router.push("../Tasks/index")}>
+              <TouchableOpacity onPress={() => router.push("/Tasks")}>
                 <Text style={styles.verTodas}>Ver todas →</Text>
               </TouchableOpacity>
             </View>
@@ -137,7 +156,7 @@ export default function Home() {
                   key={tarefa.id ?? index}
                   style={styles.tarefaCard}
                   activeOpacity={0.8}
-                  onPress={() => router.push("../Tasks/index")}
+                  onPress={() => router.push("/Tasks/Detalhes/" + tarefa.id) /* Navega para detalhes da tarefa */}
                 >
                   <View style={styles.checkbox} />
                   <View style={styles.tarefaContent}>

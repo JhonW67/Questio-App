@@ -8,6 +8,7 @@ interface DisciplinaProfessorOption {
   idDisciplina: string;
   nome: string;
   semestre: number | null;
+  turmasIds: string[];
 }
 
 interface CreateProfessorTaskPayload {
@@ -16,6 +17,7 @@ interface CreateProfessorTaskPayload {
   prazo: string;
   pontos: number;
   idTurma: string;
+  idDisciplina: string;
   materiais?: DocumentPickerAsset[];
 }
 
@@ -30,7 +32,9 @@ export function useProfessorTasks() {
   const turmasDoProfessor = useMemo(
     () =>
       turmas.filter((turma) =>
-        user?.idUsuario ? turma.idProfessor === user.idUsuario : false,
+        user?.idUsuario
+          ? turma.ofertas.some((oferta) => oferta.idProfessor === user.idUsuario)
+          : false,
       ),
     [turmas, user?.idUsuario],
   );
@@ -39,23 +43,36 @@ export function useProfessorTasks() {
     const unique = new Map<string, DisciplinaProfessorOption>();
 
     turmasDoProfessor.forEach((turma) => {
-      if (!turma.idDisciplina || !turma.nomeDisciplina) {
-        return;
-      }
+      turma.ofertas.forEach((oferta) => {
+        if (
+          !oferta.idDisciplina ||
+          !oferta.nomeDisciplina ||
+          oferta.idProfessor !== user?.idUsuario
+        ) {
+          return;
+        }
 
-      if (!unique.has(turma.idDisciplina)) {
-        unique.set(turma.idDisciplina, {
-          idDisciplina: turma.idDisciplina,
-          nome: turma.nomeDisciplina,
-          semestre: turma.semestre,
-        });
-      }
+        const current = unique.get(oferta.idDisciplina);
+        if (!current) {
+          unique.set(oferta.idDisciplina, {
+            idDisciplina: oferta.idDisciplina,
+            nome: oferta.nomeDisciplina,
+            semestre: turma.semestre,
+            turmasIds: [turma.idTurma],
+          });
+          return;
+        }
+
+        if (!current.turmasIds.includes(turma.idTurma)) {
+          current.turmasIds.push(turma.idTurma);
+        }
+      });
     });
 
     return Array.from(unique.values()).sort((a, b) =>
       a.nome.localeCompare(b.nome, "pt-BR"),
     );
-  }, [turmasDoProfessor]);
+  }, [turmasDoProfessor, user?.idUsuario]);
 
   const turmasDaDisciplina = useMemo(() => {
     if (!disciplinaSelecionadaId) {
@@ -63,9 +80,14 @@ export function useProfessorTasks() {
     }
 
     return turmasDoProfessor.filter(
-      (turma) => turma.idDisciplina === disciplinaSelecionadaId,
+      (turma) =>
+        turma.ofertas.some(
+          (oferta) =>
+            oferta.idDisciplina === disciplinaSelecionadaId &&
+            oferta.idProfessor === user?.idUsuario,
+        ),
     );
-  }, [disciplinaSelecionadaId, turmasDoProfessor]);
+  }, [disciplinaSelecionadaId, turmasDoProfessor, user?.idUsuario]);
 
   const setDisciplinaSelecionada = useCallback((idDisciplina: string | null) => {
     setDisciplinaSelecionadaId(idDisciplina);

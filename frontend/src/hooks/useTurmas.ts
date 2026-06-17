@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  addOfertaTurma,
   createTurma,
   deleteTurma,
   getAlunos,
@@ -12,6 +13,7 @@ import type {
   MatriculaPayload,
   Professor,
   Turma,
+  TurmaOfertaPayload,
   TurmaPayload,
 } from "../types/academic";
 
@@ -109,8 +111,18 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       sortTurmasByName(
         turmas.filter((turma) => {
         if (idCurso && turma.idCurso !== idCurso) return false;
-        if (idDisciplina && turma.idDisciplina !== idDisciplina) return false;
-        if (idProfessor && turma.idProfessor !== idProfessor) return false;
+        if (
+          idDisciplina &&
+          !turma.ofertas.some((oferta) => oferta.idDisciplina === idDisciplina)
+        ) {
+          return false;
+        }
+        if (
+          idProfessor &&
+          !turma.ofertas.some((oferta) => oferta.idProfessor === idProfessor)
+        ) {
+          return false;
+        }
         if (semestre && turma.semestre !== semestre) return false;
         return true;
         }),
@@ -136,6 +148,27 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       setSaving(false);
     }
   }, []);
+
+  const addOfertaAction = useCallback(
+    async (idTurma: string, payload: TurmaOfertaPayload) => {
+      try {
+        setSaving(true);
+        setError(null);
+        await addOfertaTurma(idTurma, payload);
+        await refresh();
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
+          "Não foi possível adicionar a disciplina na turma.";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh],
+  );
 
   const matricularAlunosAction = useCallback(
     async (payload: MatriculaPayload) => {
@@ -189,6 +222,7 @@ export function useTurmas(options: UseTurmasOptions = {}) {
     loadProfessores,
     loadAlunos,
     createTurma: createTurmaAction,
+    addOfertaTurma: addOfertaAction,
     matricularAlunos: matricularAlunosAction,
     deleteTurma: deleteTurmaAction,
   };

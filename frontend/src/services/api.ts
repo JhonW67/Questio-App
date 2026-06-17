@@ -177,6 +177,14 @@ export async function createTurma(payload: TurmaPayload): Promise<Turma> {
   return normalizeTurma(data);
 }
 
+export async function addOfertaTurma(
+  idTurma: string,
+  payload: { idDisciplina: string; idProfessor: string },
+) {
+  const { data } = await api.post(`/coordenacao/turmas/${idTurma}/ofertas`, payload);
+  return data;
+}
+
 export async function matricularAlunos(
   payload: MatriculaPayload,
 ): Promise<void> {
@@ -218,7 +226,8 @@ export async function createTask(payload: CreateTaskPayload) {
     descricao: payload.descricao,
     prazo: payload.prazo,
     pontos: payload.pontos,
-    idClass: payload.idTurma,
+    idTurma: payload.idTurma,
+    idDisciplina: payload.idDisciplina,
   });
 
   return data;

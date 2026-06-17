@@ -50,6 +50,7 @@ export default function CriarTurma() {
     loadProfessores,
     loadAlunos,
     createTurma,
+    addOfertaTurma,
     matricularAlunos,
     deleteTurma,
   } = useTurmas();
@@ -74,6 +75,10 @@ export default function CriarTurma() {
   const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
   const [showProfessorModal, setShowProfessorModal] = useState(false);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [turmaSelecionadaOferta, setTurmaSelecionadaOferta] = useState<Turma | null>(
+    null,
+  );
+  const [showTurmaOfertaModal, setShowTurmaOfertaModal] = useState(false);
 
   const isCompact = width < 430;
 
@@ -121,7 +126,10 @@ export default function CriarTurma() {
             }
             if (
               disciplinaSelecionada &&
-              turma.idDisciplina !== disciplinaSelecionada.idDisciplina
+              !turma.ofertas.some(
+                (oferta) =>
+                  oferta.idDisciplina === disciplinaSelecionada.idDisciplina,
+              )
             ) {
               return false;
             }
@@ -207,19 +215,25 @@ export default function CriarTurma() {
     try {
       const turmaCriada = await createTurma({
         nome: nome.trim(),
-        idProfessor: professorSelecionado.idUsuario,
         idCurso: cursoSelecionado.idCurso,
-        idDisciplina: disciplinaSelecionada.idDisciplina,
         semestre: semestreSelecionado.value,
+        ofertas: [
+          {
+            idProfessor: professorSelecionado.idUsuario,
+            idDisciplina: disciplinaSelecionada.idDisciplina,
+          },
+        ],
       });
 
       setTurmaSelecionadaMatricula(turmaCriada);
+      setTurmaSelecionadaOferta(turmaCriada);
       Alert.alert(
         "Sucesso",
-        `Turma "${turmaCriada.nome}" criada com sucesso.`,
+        `Turma "${turmaCriada.nome}" criada com a primeira disciplina vinculada.`,
       );
       setNome("");
       setDisciplinaSelecionada(null);
+      setProfessorSelecionado(null);
     } catch (error: any) {
       Alert.alert(
         "Erro ao criar turma",
@@ -240,6 +254,43 @@ export default function CriarTurma() {
 
       return [...atual, aluno];
     });
+  }
+
+  async function handleAdicionarOferta() {
+    if (!turmaSelecionadaOferta) {
+      Alert.alert("Atenção", "Selecione a turma que receberá a nova disciplina.");
+      return;
+    }
+
+    if (!disciplinaSelecionada) {
+      Alert.alert("Atenção", "Selecione a disciplina.");
+      return;
+    }
+
+    if (!professorSelecionado) {
+      Alert.alert("Atenção", "Selecione o professor responsável pela disciplina.");
+      return;
+    }
+
+    try {
+      await addOfertaTurma(turmaSelecionadaOferta.idTurma, {
+        idDisciplina: disciplinaSelecionada.idDisciplina,
+        idProfessor: professorSelecionado.idUsuario,
+      });
+
+      Alert.alert(
+        "Sucesso",
+        `Disciplina "${disciplinaSelecionada.nome}" vinculada à turma "${turmaSelecionadaOferta.nome}".`,
+      );
+      setDisciplinaSelecionada(null);
+      setProfessorSelecionado(null);
+      setShowTurmaOfertaModal(false);
+    } catch (error: any) {
+      Alert.alert(
+        "Erro ao adicionar disciplina",
+        error?.message || "Não foi possível vincular a disciplina na turma.",
+      );
+    }
   }
 
   async function handleMatricularAlunos() {
@@ -334,7 +385,12 @@ export default function CriarTurma() {
   });
 
   const subtituloTurma = (turma: Turma) =>
-    [turma.nomeCurso, turma.nomeDisciplina, turma.nomeProfessor]
+    [
+      turma.nomeCurso,
+      turma.ofertas.length > 0
+        ? `${turma.ofertas.length} disciplina(s)`
+        : "Sem disciplinas",
+    ]
       .filter(Boolean)
       .join(" • ");
 
@@ -575,6 +631,91 @@ export default function CriarTurma() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Adicionar Disciplina na Turma</Text>
+        <Text style={styles.subtitle}>
+          Use esta etapa para vincular outras disciplinas e professores na mesma turma.
+        </Text>
+
+        <Text style={styles.label}>Turma</Text>
+        <TouchableOpacity
+          style={styles.select}
+          activeOpacity={0.8}
+          onPress={() => setShowTurmaOfertaModal(true)}
+          disabled={loading || turmas.length === 0}
+        >
+          <Text style={styles.selectValue}>
+            {turmaSelecionadaOferta?.nome ||
+              (turmas.length > 0 ? "Selecione a turma" : "Nenhuma turma disponível")}
+          </Text>
+          <Feather name="chevron-down" size={16} color="#7c8db5" />
+        </TouchableOpacity>
+
+        <Text style={styles.label}>Disciplina</Text>
+        {loadingDisciplinas ? (
+          <View style={styles.loadingSelect}>
+            <ActivityIndicator color="#16C7E7" size="small" />
+            <Text style={styles.loadingText}>Carregando disciplinas...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.select}
+            activeOpacity={0.8}
+            onPress={() => setShowDisciplinaModal(true)}
+            disabled={!cursoSelecionado || disciplinas.length === 0}
+          >
+            <Text style={styles.selectValue}>
+              {disciplinaSelecionada?.nome ||
+                (cursoSelecionado
+                  ? "Selecione a disciplina"
+                  : "Selecione primeiro o curso")}
+            </Text>
+            <Feather name="chevron-down" size={16} color="#7c8db5" />
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.label}>Professor</Text>
+        {loadingProfessores ? (
+          <View style={styles.loadingSelect}>
+            <ActivityIndicator color="#16C7E7" size="small" />
+            <Text style={styles.loadingText}>Carregando professores...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.select}
+            activeOpacity={0.8}
+            onPress={() => setShowProfessorModal(true)}
+            disabled={professores.length === 0}
+          >
+            <Text style={styles.selectValue}>
+              {professorSelecionado?.nome || "Selecione o professor"}
+            </Text>
+            <Feather name="chevron-down" size={16} color="#7c8db5" />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.button, saving && styles.buttonDisabled]}
+          onPress={handleAdicionarOferta}
+          disabled={
+            saving ||
+            !turmaSelecionadaOferta ||
+            !disciplinaSelecionada ||
+            !professorSelecionado
+          }
+          activeOpacity={0.8}
+        >
+          {saving ? (
+            <ActivityIndicator color="#050E1D" />
+          ) : (
+            <>
+              <Feather name="plus-square" size={18} color="#050E1D" />
+              <Text style={styles.buttonText}>Adicionar Disciplina na Turma</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.sectionTitle}>Turmas cadastradas</Text>
 
       {loading ? (
@@ -606,6 +747,18 @@ export default function CriarTurma() {
                 <Text style={styles.turmaInfo}>
                   {subtituloTurma(turma)}
                 </Text>
+                {turma.ofertas?.length ? (
+                  <Text style={styles.turmaInfo}>
+                    {turma.ofertas
+                      .map(
+                        (oferta) =>
+                          `${oferta.nomeDisciplina || "Disciplina"} - ${
+                            oferta.nomeProfessor || "Professor"
+                          }`,
+                      )
+                      .join(" | ")}
+                  </Text>
+                ) : null}
                 <Text style={styles.turmaId} numberOfLines={1}>
                   ID: {turma.idTurma}
                 </Text>
@@ -783,6 +936,21 @@ export default function CriarTurma() {
         subtitleExtractor={(item) => item.email}
         onClose={() => setShowProfessorModal(false)}
         onSelect={(item) => setProfessorSelecionado(item)}
+      />
+
+      <EntityPicker
+        visible={showTurmaOfertaModal}
+        title="Selecionar turma"
+        items={turmas}
+        loading={loading}
+        selectedKey={turmaSelecionadaOferta?.idTurma}
+        searchPlaceholder="Buscar turma"
+        emptyText="Nenhuma turma cadastrada."
+        keyExtractor={(item) => item.idTurma}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={subtituloTurma}
+        onClose={() => setShowTurmaOfertaModal(false)}
+        onSelect={(item) => setTurmaSelecionadaOferta(item)}
       />
 
       <EntityPicker

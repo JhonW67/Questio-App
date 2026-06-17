@@ -1,15 +1,19 @@
 package com.questio.questio_backend.service;
 
-import com.questio.questio_backend.dto.ClassRequestDTO;
-import com.questio.questio_backend.dto.ClassResponseDTO;
 import com.questio.questio_backend.dto.EnrolmentRequestDTO;
+import com.questio.questio_backend.dto.TurmaCreateRequestDTO;
+import com.questio.questio_backend.dto.TurmaOfertaRequestDTO;
+import com.questio.questio_backend.dto.TurmaOfertaResponseDTO;
+import com.questio.questio_backend.dto.TurmaResponseDTO;
 import com.questio.questio_backend.entity.Curso;
 import com.questio.questio_backend.entity.Disciplina;
 import com.questio.questio_backend.entity.enums.TipoUsuario;
+import com.questio.questio_backend.entity.TurmaOferta;
 import com.questio.questio_backend.entity.User;
 import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.CursoRepository;
 import com.questio.questio_backend.repository.DisciplinaRepository;
+import com.questio.questio_backend.repository.TurmaOfertaRepository;
 import com.questio.questio_backend.repository.UserRepository;
 import com.questio.questio_backend.entity.Class;
 import jakarta.transaction.Transactional;
@@ -28,6 +32,7 @@ public class ClassService {
     private final ClassRepository turmaRepository;
     private final CursoRepository cursoRepository;
     private final DisciplinaRepository disciplinaRepository;
+    private final TurmaOfertaRepository turmaOfertaRepository;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -40,66 +45,130 @@ public class ClassService {
     }
 
     @Transactional
-    public ClassResponseDTO criarTurma(ClassRequestDTO dto) {
-
-        User usuario = (User) userRepository.findById(dto.idProfessor())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+    public TurmaResponseDTO criarTurma(TurmaCreateRequestDTO dto) {
         Curso curso = cursoRepository.findById(dto.idCurso())
                 .orElseThrow(() -> new RuntimeException("Curso não encontrado"));
-        Disciplina disciplina = disciplinaRepository.findById(dto.idDisciplina())
-                .orElseThrow(() -> new RuntimeException("Disciplina não encontrada"));
 
-        boolean isProfessor = usuario.getAuthorities().stream()
+        Class novaTurma = Class.builder()
+                .nome(dto.nome())
+                .curso(curso)
+                .semestre(dto.semestre())
+                .build();
+
+        Class turmaPersistida = turmaRepository.save(novaTurma);
+
+        if (dto.ofertas() != null) {
+            for (TurmaOfertaRequestDTO oferta : dto.ofertas()) {
+                adicionarOfertaInterna(turmaPersistida, curso, dto.semestre(), oferta);
+            }
+        }
+
+        Class recarregada = turmaRepository.findById(turmaPersistida.getIdClass())
+                .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
+
+        return mapToDTO(recarregada);
+    }
+
+    @Transactional
+    public TurmaOfertaResponseDTO adicionarOferta(UUID idTurma, TurmaOfertaRequestDTO dto) {
+        Class turma = turmaRepository.findById(idTurma)
+                .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
+        Curso curso = turma.getCurso() != null
+                ? turma.getCurso()
+                : null;
+        if (curso == null || curso.getIdCurso() == null) {
+            throw new RuntimeException("Turma sem curso vinculado.");
+        }
+        Integer semestre = turma.getSemestre();
+        if (semestre == null) {
+            throw new RuntimeException("Turma sem semestre definido.");
+        }
+
+        TurmaOferta oferta = adicionarOfertaInterna(turma, curso, semestre, dto);
+        return mapOferta(oferta);
+    }
+
+    private TurmaOferta adicionarOfertaInterna(
+            Class turma,
+            Curso curso,
+            Integer semestreTurma,
+            TurmaOfertaRequestDTO dto
+    ) {
+        if (dto == null) {
+            throw new RuntimeException("Oferta inválida.");
+        }
+
+        if (turmaOfertaRepository.existsByTurmaIdClassAndDisciplinaIdDisciplina(turma.getIdClass(), dto.idDisciplina())) {
+            throw new RuntimeException("Essa disciplina já está cadastrada nesta turma.");
+        }
+
+        User professor = userRepository.findById(dto.idProfessor())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        boolean isProfessor = professor.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_PROFESSOR"));
 
         if (!isProfessor) {
             throw new RuntimeException("Operação Inválida: O usuário selecionado não possui perfil de Professor.");
         }
 
-        if (!disciplina.getCurso().getIdCurso().equals(curso.getIdCurso())) {
+        Disciplina disciplina = disciplinaRepository.findById(dto.idDisciplina())
+                .orElseThrow(() -> new RuntimeException("Disciplina não encontrada"));
+
+        if (disciplina.getCurso() == null || disciplina.getCurso().getIdCurso() == null
+                || !disciplina.getCurso().getIdCurso().equals(curso.getIdCurso())) {
             throw new RuntimeException("A disciplina selecionada não pertence ao curso informado.");
         }
 
-        if (!disciplina.getSemestre().equals(dto.semestre())) {
+        if (disciplina.getSemestre() == null || !disciplina.getSemestre().equals(semestreTurma)) {
             throw new RuntimeException("A disciplina selecionada não pertence ao semestre informado.");
         }
 
-        Class novaTurma = Class.builder()
-                .nome(dto.nome())
-                .professor(usuario)
-                .curso(curso)
+        TurmaOferta oferta = TurmaOferta.builder()
+                .turma(turma)
                 .disciplina(disciplina)
-                .semestre(dto.semestre())
+                .professor(professor)
+                .ativa(true)
                 .build();
 
-        return mapToDTO(turmaRepository.save(novaTurma));
+        return turmaOfertaRepository.save(oferta);
     }
 
-    private ClassResponseDTO mapToDTO(Class turma) {
-        return new ClassResponseDTO(
+    private TurmaResponseDTO mapToDTO(Class turma) {
+        return new TurmaResponseDTO(
                 turma.getIdClass(),
                 turma.getCurso() != null ? turma.getCurso().getIdCurso() : null,
-                turma.getDisciplina() != null ? turma.getDisciplina().getIdDisciplina() : null,
-                turma.getProfessor() != null ? turma.getProfessor().getIdUsuario() : null,
-                turma.getNome(),
                 turma.getCurso() != null ? turma.getCurso().getNome() : null,
-                turma.getDisciplina() != null ? turma.getDisciplina().getNome() : null,
-                turma.getProfessor() != null ? turma.getProfessor().getNome() : null,
+                turma.getNome(),
                 turma.getSemestre(),
-                turma.isAtiva()
+                turma.isAtiva(),
+                turma.getOfertas() == null
+                        ? List.of()
+                        : turma.getOfertas().stream().map(this::mapOferta).toList()
         );
     }
 
     @Transactional
-    public List<ClassResponseDTO> listarTurmasVisiveis() {
+    public List<TurmaResponseDTO> listarTurmasVisiveis() {
         User usuario = getUsuarioAutenticado();
         TipoUsuario tipoUsuario = TipoUsuario.fromString(usuario.getTipoUsuario());
 
         List<Class> turmas = tipoUsuario == TipoUsuario.PROFESSOR
-                ? turmaRepository.findByProfessorIdUsuarioOrderByNomeAsc(usuario.getIdUsuario())
+                ? turmaRepository.findDistinctByOfertasProfessorIdUsuarioOrderByNomeAsc(usuario.getIdUsuario())
                 : turmaRepository.findAllByOrderByNomeAsc();
 
         return turmas.stream().map(this::mapToDTO).toList();
+    }
+
+    private TurmaOfertaResponseDTO mapOferta(TurmaOferta oferta) {
+        return new TurmaOfertaResponseDTO(
+                oferta.getIdOferta(),
+                oferta.getDisciplina() != null ? oferta.getDisciplina().getIdDisciplina() : null,
+                oferta.getDisciplina() != null ? oferta.getDisciplina().getNome() : null,
+                oferta.getProfessor() != null ? oferta.getProfessor().getIdUsuario() : null,
+                oferta.getProfessor() != null ? oferta.getProfessor().getNome() : null,
+                oferta.getAtiva()
+        );
     }
 
     @Transactional

@@ -1,10 +1,12 @@
 package com.questio.questio_backend.controller;
 
-import com.questio.questio_backend.dto.ClassRequestDTO;
-import com.questio.questio_backend.dto.ClassResponseDTO;
 import com.questio.questio_backend.dto.AcessoRequestDTO;
 import com.questio.questio_backend.dto.CreateStaffUserRequestDTO;
 import com.questio.questio_backend.dto.EnrolmentRequestDTO;
+import com.questio.questio_backend.dto.TurmaCreateRequestDTO;
+import com.questio.questio_backend.dto.TurmaOfertaRequestDTO;
+import com.questio.questio_backend.dto.TurmaOfertaResponseDTO;
+import com.questio.questio_backend.dto.TurmaResponseDTO;
 import com.questio.questio_backend.dto.UserResponseDTO;
 import com.questio.questio_backend.service.ClassService;
 import com.questio.questio_backend.service.UserService;
@@ -37,13 +39,22 @@ public class CoordinationController {
 
     @PostMapping("/turmas")
     @PreAuthorize("hasRole('COORDENACAO')")
-    public ResponseEntity<ClassResponseDTO> criarTurma(@RequestBody @Valid ClassRequestDTO dto) {
+    public ResponseEntity<TurmaResponseDTO> criarTurma(@RequestBody @Valid TurmaCreateRequestDTO dto) {
         return ResponseEntity.ok(turmaService.criarTurma(dto));
+    }
+
+    @PostMapping("/turmas/{idTurma}/ofertas")
+    @PreAuthorize("hasRole('COORDENACAO')")
+    public ResponseEntity<TurmaOfertaResponseDTO> adicionarOferta(
+            @PathVariable java.util.UUID idTurma,
+            @RequestBody @Valid TurmaOfertaRequestDTO dto
+    ) {
+        return ResponseEntity.ok(turmaService.adicionarOferta(idTurma, dto));
     }
 
     @GetMapping("/turmas")
     @PreAuthorize("hasAnyRole('COORDENACAO', 'PROFESSOR')")
-    public ResponseEntity<java.util.List<ClassResponseDTO>> listarTurmas() {
+    public ResponseEntity<java.util.List<TurmaResponseDTO>> listarTurmas() {
         return ResponseEntity.ok(turmaService.listarTurmasVisiveis());
     }
 

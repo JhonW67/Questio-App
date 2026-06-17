@@ -14,6 +14,7 @@ import com.questio.questio_backend.repository.SubmitRepository;
 import com.questio.questio_backend.repository.TaskMaterialRepository;
 import com.questio.questio_backend.repository.TaskRepository;
 import com.questio.questio_backend.repository.UserRepository;
+import com.questio.questio_backend.repository.TurmaOfertaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,6 +45,7 @@ public class TaskService {
     private final TaskMaterialRepository taskMaterialRepository;
     private final TokenService tokenService;
     private final UserRepository userRepository;
+    private final TurmaOfertaRepository turmaOfertaRepository;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -65,12 +67,14 @@ public class TaskService {
     public TaskResponseDTO criarTarefa(TaskRequestDTO dto) {
         User professor = getUsuarioAutenticado();
 
-        Class turma = turmaRepository.findById(dto.idClass())
+        Class turma = turmaRepository.findById(dto.idTurma())
                 .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
 
-        if (turma.getProfessor() == null || !Objects.equals(turma.getProfessor().getIdUsuario(), professor.getIdUsuario())) {
-            throw new RuntimeException("Você só pode criar tarefas para turmas vinculadas ao seu perfil.");
-        }
+        var oferta = turmaOfertaRepository.findByTurmaIdClassAndDisciplinaIdDisciplinaAndProfessorIdUsuario(
+                turma.getIdClass(),
+                dto.idDisciplina(),
+                professor.getIdUsuario()
+        ).orElseThrow(() -> new RuntimeException("Você não está vinculado a esta disciplina nesta turma."));
 
         Task novaTarefa = Task.builder()
                 .titulo(dto.titulo())
@@ -80,6 +84,7 @@ public class TaskService {
                 .status("Pendente")
                 .professor(professor)
                 .turma(turma)
+                .oferta(oferta)
                 .build();
 
         Task salva = tarefaRepository.save(novaTarefa);

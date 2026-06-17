@@ -105,7 +105,11 @@ export default function HomeProfessor() {
                 </Text>
               </View>
               <Text style={styles.cardMeta}>
-                {turma.nomeDisciplina || "Disciplina não informada"}
+                {turma.ofertas.length > 0
+                  ? turma.ofertas
+                      .map((oferta) => oferta.nomeDisciplina || "Disciplina")
+                      .join(" • ")
+                  : "Disciplina não informada"}
               </Text>
               <Text style={styles.cardMeta}>
                 {turma.nomeCurso || "Curso não informado"}

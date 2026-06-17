@@ -10,6 +10,7 @@ import com.questio.questio_backend.entity.enums.TipoUsuario;
 import com.questio.questio_backend.repository.AcademicEventRepository;
 import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.DisciplinaRepository;
+import com.questio.questio_backend.repository.TurmaOfertaRepository;
 import com.questio.questio_backend.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class AcademicEventService {
     private final UserRepository userRepository;
     private final ClassRepository classRepository;
     private final DisciplinaRepository disciplinaRepository;
+    private final TurmaOfertaRepository turmaOfertaRepository;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -67,10 +69,6 @@ public class AcademicEventService {
         if (dto.idTurma() != null) {
             turma = classRepository.findById(dto.idTurma())
                     .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
-
-            if (turma.getProfessor() == null || !turma.getProfessor().getIdUsuario().equals(professor.getIdUsuario())) {
-                throw new RuntimeException("A turma selecionada não pertence ao professor informado.");
-            }
         }
 
         Disciplina disciplina = null;
@@ -79,9 +77,24 @@ public class AcademicEventService {
                     .orElseThrow(() -> new RuntimeException("Disciplina não encontrada"));
         }
 
-        if (turma != null && disciplina != null) {
-            if (turma.getDisciplina() == null || !turma.getDisciplina().getIdDisciplina().equals(disciplina.getIdDisciplina())) {
-                throw new RuntimeException("A turma selecionada não corresponde à disciplina informada.");
+        if (turma != null) {
+            if (disciplina != null) {
+                boolean vinculado = turmaOfertaRepository.findByTurmaIdClassAndDisciplinaIdDisciplinaAndProfessorIdUsuario(
+                        turma.getIdClass(),
+                        disciplina.getIdDisciplina(),
+                        professor.getIdUsuario()
+                ).isPresent();
+                if (!vinculado) {
+                    throw new RuntimeException("O professor informado não está vinculado à disciplina selecionada nesta turma.");
+                }
+            } else {
+                boolean vinculado = turmaOfertaRepository.existsByTurmaIdClassAndProfessorIdUsuario(
+                        turma.getIdClass(),
+                        professor.getIdUsuario()
+                );
+                if (!vinculado) {
+                    throw new RuntimeException("O professor informado não está vinculado a esta turma.");
+                }
             }
         }
 
@@ -104,7 +117,7 @@ public class AcademicEventService {
         AcademicEvent evento = AcademicEvent.builder()
                 .professor(professor)
                 .turma(turma)
-                .disciplina(disciplina != null ? disciplina : turma != null ? turma.getDisciplina() : null)
+                .disciplina(disciplina)
                 .aluno(aluno)
                 .titulo(dto.tituloEvento().trim())
                 .descricao(dto.descricaoEvento().trim())
@@ -116,16 +129,18 @@ public class AcademicEventService {
         return map(academicEventRepository.save(evento));
     }
 
+    @Transactional
     public List<AcademicEventResponseDTO> listarTodos() {
         return academicEventRepository.findAllByOrderByDataEventoDescCriadoEmDesc().stream()
                 .map(this::map)
                 .toList();
     }
 
+    @Transactional
     public List<AcademicEventResponseDTO> listarDoProfessorAutenticado() {
         User professor = getUsuarioAutenticado();
 
-        return academicEventRepository.findByProfessorIdUsuarioOrderByDataEventoDescCriadoEmDesc(professor.getIdUsuario()).stream()
+        return academicEventRepository.findVisiveisParaProfessor(professor.getIdUsuario()).stream()
                 .map(this::map)
                 .toList();
     }

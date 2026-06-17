@@ -55,6 +55,8 @@ export default function CreateTask() {
 
   const turmaSelecionada =
     turmasDaDisciplina.find((item) => item.idTurma === turmaSelecionadaId) ?? null;
+  const disciplinaSelecionada =
+    disciplinas.find((item) => item.idDisciplina === disciplinaSelecionadaId) ?? null;
 
   useEffect(() => {
     if (!disciplinaSelecionadaId) {
@@ -111,7 +113,8 @@ export default function CreateTask() {
       !titulo.trim() ||
       !objetivo.trim() ||
       !dataEntrega ||
-      !turmaSelecionada
+      !turmaSelecionada ||
+      !disciplinaSelecionadaId
     ) {
       Alert.alert("Campos obrigatórios", "Preencha todos os campos.");
       return;
@@ -127,6 +130,7 @@ export default function CreateTask() {
         prazo: prazoISO,
         pontos: Number.isNaN(pontosNum) ? 0 : pontosNum,
         idTurma: turmaSelecionada.idTurma,
+        idDisciplina: disciplinaSelecionadaId,
         materiais: arquivos,
       });
 
@@ -218,9 +222,7 @@ export default function CreateTask() {
                     : "Selecione uma disciplina"
                 }
                 value={
-                  disciplinas.find(
-                    (item) => item.idDisciplina === disciplinaSelecionadaId,
-                  )?.nome ?? ""
+                  disciplinaSelecionada?.nome ?? ""
                 }
                 rightElement={
                   loading ? (
@@ -336,6 +338,7 @@ export default function CreateTask() {
               !titulo ||
               !objetivo ||
               !turmaSelecionada ||
+              !disciplinaSelecionadaId ||
               !dataEntrega
             }
             style={{ marginTop: 25, marginBottom: 40 }}
@@ -383,6 +386,25 @@ export default function CreateTask() {
                       style={{ marginRight: 12 }}
                     />
                     <Text style={styles.turmaItemText}>{item.nome}</Text>
+                    <Text
+                      style={[
+                        styles.emptyText,
+                        { marginTop: 4, textAlign: "left", paddingHorizontal: 0 },
+                      ]}
+                    >
+                      {item.ofertas
+                        .filter(
+                          (oferta) =>
+                            oferta.idDisciplina === disciplinaSelecionadaId,
+                        )
+                        .map(
+                          (oferta) =>
+                            `${oferta.nomeDisciplina || "Disciplina"} • ${
+                              oferta.nomeProfessor || "Professor"
+                            }`,
+                        )
+                        .join(" | ")}
+                    </Text>
                     {turmaSelecionada?.idTurma === item.idTurma && (
                       <Feather
                         name="check"

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +33,11 @@ import { SEMESTRE_OPTIONS } from "../../../../types/academic";
 export default function CriarTurma() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
-  const { cursos, loading: loadingCursos } = useCursos();
+  const {
+    cursos,
+    loading: loadingCursos,
+    refresh: refreshCursos,
+  } = useCursos();
   const {
     turmas,
     professores,
@@ -72,7 +77,11 @@ export default function CriarTurma() {
 
   const isCompact = width < 430;
 
-  const { disciplinas, loading: loadingDisciplinas } = useDisciplinas({
+  const {
+    disciplinas,
+    loading: loadingDisciplinas,
+    refresh: refreshDisciplinas,
+  } = useDisciplinas({
     idCurso: cursoSelecionado?.idCurso,
     semestre: semestreSelecionado.value,
   });
@@ -83,6 +92,88 @@ export default function CriarTurma() {
       loadProfessores();
     }
   }, [loadProfessores, refresh, user?.token]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.token) {
+        refresh();
+        loadProfessores();
+        refreshCursos();
+        refreshDisciplinas();
+      }
+    }, [
+      loadProfessores,
+      refresh,
+      refreshCursos,
+      refreshDisciplinas,
+      user?.token,
+    ]),
+  );
+
+  const hasTurmaContext = Boolean(cursoSelecionado || disciplinaSelecionada);
+
+  const turmasNoContexto = useMemo(
+    () =>
+      hasTurmaContext
+        ? turmas.filter((turma) => {
+            if (cursoSelecionado && turma.idCurso !== cursoSelecionado.idCurso) {
+              return false;
+            }
+            if (
+              disciplinaSelecionada &&
+              turma.idDisciplina !== disciplinaSelecionada.idDisciplina
+            ) {
+              return false;
+            }
+            return turma.semestre === semestreSelecionado.value;
+          })
+        : turmas,
+    [
+      cursoSelecionado,
+      disciplinaSelecionada,
+      hasTurmaContext,
+      semestreSelecionado.value,
+      turmas,
+    ],
+  );
+
+  const turmasParaExibir = hasTurmaContext ? turmasNoContexto : turmas;
+
+  useEffect(() => {
+    if (
+      disciplinaSelecionada &&
+      !disciplinas.some(
+        (item) => item.idDisciplina === disciplinaSelecionada.idDisciplina,
+      )
+    ) {
+      setDisciplinaSelecionada(null);
+    }
+  }, [disciplinaSelecionada, disciplinas]);
+
+  useEffect(() => {
+    if (
+      professorSelecionado &&
+      !professores.some((item) => item.idUsuario === professorSelecionado.idUsuario)
+    ) {
+      setProfessorSelecionado(null);
+    }
+  }, [professorSelecionado, professores]);
+
+  useEffect(() => {
+    if (
+      turmaSelecionadaMatricula &&
+      !turmasParaExibir.some(
+        (item) => item.idTurma === turmaSelecionadaMatricula.idTurma,
+      )
+    ) {
+      setTurmaSelecionadaMatricula(null);
+    }
+  }, [turmaSelecionadaMatricula, turmasParaExibir]);
+
+  useEffect(() => {
+    setAlunosSelecionados([]);
+    setBuscaAluno("");
+  }, [turmaSelecionadaMatricula?.idTurma]);
 
   async function handleCriarTurma() {
     if (!nome.trim()) {
@@ -184,6 +275,14 @@ export default function CriarTurma() {
   }
 
   async function abrirModalAlunos() {
+    if (!turmaSelecionadaMatricula) {
+      Alert.alert(
+        "Atenção",
+        "Selecione primeiro a turma que recebera os alunos.",
+      );
+      return;
+    }
+
     if (alunos.length === 0 && !loadingAlunos) {
       const alunosCarregados = await loadAlunos();
       if (alunosCarregados.length === 0) {
@@ -325,6 +424,11 @@ export default function CriarTurma() {
             <Feather name="chevron-down" size={16} color="#7c8db5" />
           </TouchableOpacity>
         )}
+        {cursoSelecionado && !loadingDisciplinas && disciplinas.length === 0 ? (
+          <Text style={styles.subtitle}>
+            Nenhuma disciplina encontrada para o curso e semestre selecionados.
+          </Text>
+        ) : null}
 
         <Text style={styles.label}>Professor Responsável</Text>
 
@@ -397,13 +501,22 @@ export default function CriarTurma() {
           style={styles.select}
           activeOpacity={0.8}
           onPress={() => setShowTurmaModal(true)}
-          disabled={loading || turmas.length === 0}
+          disabled={loading || turmasParaExibir.length === 0}
         >
           <Text style={styles.selectValue}>
-            {turmaSelecionadaMatricula?.nome || "Nenhuma turma disponível"}
+            {turmaSelecionadaMatricula?.nome ||
+              (turmasParaExibir.length > 0
+                ? "Selecione a turma"
+                : "Nenhuma turma disponivel")}
           </Text>
           <Feather name="chevron-down" size={16} color="#7c8db5" />
         </TouchableOpacity>
+
+        {hasTurmaContext && !loading && turmasNoContexto.length === 0 ? (
+          <Text style={styles.subtitle}>
+            Nenhuma turma encontrada para o filtro atual de curso, semestre e disciplina.
+          </Text>
+        ) : null}
 
         <Text style={styles.label}>Alunos da turma</Text>
         {loadingAlunos ? (
@@ -466,9 +579,9 @@ export default function CriarTurma() {
 
       {loading ? (
         <ActivityIndicator color="#16C7E7" size="large" />
-      ) : turmas.length > 0 ? (
+      ) : turmasParaExibir.length > 0 ? (
         <>
-          {turmas.map((turma) => (
+          {turmasParaExibir.map((turma) => (
             <View
               key={turma.idTurma}
               style={[
@@ -675,11 +788,11 @@ export default function CriarTurma() {
       <EntityPicker
         visible={showTurmaModal}
         title="Selecionar turma"
-        items={turmas}
+        items={turmasParaExibir}
         loading={loading}
         selectedKey={turmaSelecionadaMatricula?.idTurma}
         searchPlaceholder="Buscar turma"
-        emptyText="Nenhuma turma cadastrada."
+        emptyText="Nenhuma turma cadastrada para o contexto atual."
         keyExtractor={(item) => item.idTurma}
         labelExtractor={(item) => item.nome}
         subtitleExtractor={subtituloTurma}

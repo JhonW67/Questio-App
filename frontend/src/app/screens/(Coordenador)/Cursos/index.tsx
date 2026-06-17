@@ -38,6 +38,18 @@ export default function CriarCursos() {
 
   const isCompact = width < 430;
   const formMaxWidth = useMemo(() => Math.min(width - 32, 900), [width]);
+  const disciplinasOrdenadas = useMemo(
+    () =>
+      disciplinas
+        .map((item, originalIndex) => ({ item, originalIndex }))
+        .sort((a, b) => {
+          const semestreCompare = a.item.semestre - b.item.semestre;
+          return semestreCompare !== 0
+            ? semestreCompare
+            : a.item.nome.localeCompare(b.item.nome, "pt-BR");
+        }),
+    [disciplinas],
+  );
 
   const handleAdicionarDisciplina = () => {
     if (!nomeDisciplina.trim() || !cargaDisciplina.trim()) {
@@ -48,10 +60,33 @@ export default function CriarCursos() {
       return;
     }
 
+    const cargaHorariaDisciplina = Number(cargaDisciplina);
+    if (!Number.isFinite(cargaHorariaDisciplina) || cargaHorariaDisciplina <= 0) {
+      Alert.alert(
+        "Atenção",
+        "Informe uma carga horaria valida para a disciplina.",
+      );
+      return;
+    }
+
+    const disciplinaDuplicada = disciplinas.some(
+      (item) =>
+        item.semestre === semestreDisciplina.value &&
+        item.nome.trim().toLowerCase() === nomeDisciplina.trim().toLowerCase(),
+    );
+
+    if (disciplinaDuplicada) {
+      Alert.alert(
+        "Atenção",
+        "Essa disciplina ja foi adicionada para o mesmo semestre.",
+      );
+      return;
+    }
+
     const novaDisciplina: DisciplinaPayload = {
       nome: nomeDisciplina.trim(),
       semestre: semestreDisciplina.value,
-      cargaHoraria: Number(cargaDisciplina),
+      cargaHoraria: cargaHorariaDisciplina,
     };
 
     setDisciplinas((prev) => [...prev, novaDisciplina]);
@@ -78,12 +113,29 @@ export default function CriarCursos() {
       return;
     }
 
+    const cargaHorariaCurso =
+      cargaHoraria.trim().length > 0 ? Number(cargaHoraria) : undefined;
+    const totalVagas = vagas.trim().length > 0 ? Number(vagas) : undefined;
+
+    if (
+      cargaHorariaCurso !== undefined &&
+      (!Number.isFinite(cargaHorariaCurso) || cargaHorariaCurso <= 0)
+    ) {
+      Alert.alert("Erro", "Informe uma carga horaria valida para o curso.");
+      return;
+    }
+
+    if (totalVagas !== undefined && (!Number.isFinite(totalVagas) || totalVagas <= 0)) {
+      Alert.alert("Erro", "Informe uma quantidade de vagas valida.");
+      return;
+    }
+
     try {
       const cursoSalvo = await createCurso({
         nome: nomeCurso.trim(),
         descricao: descricao.trim(),
-        cargaHoraria: Number(cargaHoraria) || undefined,
-        vagas: Number(vagas) || undefined,
+        cargaHoraria: cargaHorariaCurso,
+        vagas: totalVagas,
         disciplinas,
       });
 
@@ -245,15 +297,20 @@ export default function CriarCursos() {
 
           {disciplinas.length > 0 && (
             <View style={styles.listaDisciplinasContainer}>
-              {disciplinas.map((item, index) => (
-                <View key={`${item.nome}-${index}`} style={styles.itemDisciplina}>
+              {disciplinasOrdenadas.map(({ item, originalIndex }) => (
+                <View
+                  key={`${item.nome}-${item.semestre}-${originalIndex}`}
+                  style={styles.itemDisciplina}
+                >
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={styles.itemDisciplinaNome}>{item.nome}</Text>
                     <Text style={styles.itemDisciplinaCarga}>
                       {item.semestre}º semestre • {item.cargaHoraria}h
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => handleRemoverDisciplina(index)}>
+                  <TouchableOpacity
+                    onPress={() => handleRemoverDisciplina(originalIndex)}
+                  >
                     <Feather name="trash-2" size={18} color="#ff4757" />
                   </TouchableOpacity>
                 </View>

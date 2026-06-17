@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "expo-router";
 import { EntityPicker } from "../../../../components/select/EntityPicker";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
 import { useCursos } from "../../../../hooks/useCursos";
@@ -25,7 +26,11 @@ import { SEMESTRE_OPTIONS } from "../../../../types/academic";
 
 export default function CriarEvento() {
   const { width } = useWindowDimensions();
-  const { cursos, loading: loadingCursos } = useCursos();
+  const {
+    cursos,
+    loading: loadingCursos,
+    refresh: refreshCursos,
+  } = useCursos();
   const {
     turmas,
     loading: loadingTurmas,
@@ -36,6 +41,7 @@ export default function CriarEvento() {
     loading,
     saving,
     error,
+    refresh,
     createEvento,
   } = useEventos({ mode: "coordenacao" });
 
@@ -60,7 +66,11 @@ export default function CriarEvento() {
 
   const isCompact = width < 430;
 
-  const { disciplinas, loading: loadingDisciplinas } = useDisciplinas({
+  const {
+    disciplinas,
+    loading: loadingDisciplinas,
+    refresh: refreshDisciplinas,
+  } = useDisciplinas({
     idCurso: cursoSelecionado?.idCurso,
     semestre: semestreSelecionado.value,
   });
@@ -68,6 +78,15 @@ export default function CriarEvento() {
   useEffect(() => {
     refreshTurmas();
   }, [refreshTurmas]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshTurmas();
+      refreshCursos();
+      refreshDisciplinas();
+      refresh();
+    }, [refresh, refreshCursos, refreshDisciplinas, refreshTurmas]),
+  );
 
   useEffect(() => {
     if (error) {

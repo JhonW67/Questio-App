@@ -9,15 +9,23 @@ import type { AcademicEvent, AcademicEventPayload } from "../types/academic";
 
 interface UseEventosOptions {
   mode: "coordenacao" | "professor";
+  enabled?: boolean;
 }
 
-export function useEventos({ mode }: UseEventosOptions) {
+export function useEventos({ mode, enabled = true }: UseEventosOptions) {
   const [eventos, setEventos] = useState<AcademicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      setEventos([]);
+      setLoading(false);
+      setError(null);
+      return [];
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -36,11 +44,17 @@ export function useEventos({ mode }: UseEventosOptions) {
     } finally {
       setLoading(false);
     }
-  }, [mode]);
+  }, [enabled, mode]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (enabled) {
+      refresh();
+    } else {
+      setEventos([]);
+      setLoading(false);
+      setError(null);
+    }
+  }, [enabled, refresh]);
 
   const createEvento = useCallback(async (payload: AcademicEventPayload) => {
     try {

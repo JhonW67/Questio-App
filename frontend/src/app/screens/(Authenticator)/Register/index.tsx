@@ -1,8 +1,8 @@
 import MaskedView from "@react-native-masked-view/masked-view";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -50,6 +50,12 @@ export default function Register() {
   const isCompact = width < 380;
   const isCursoObrigatorio = tipo === "Aluno";
   const formWidth = useMemo(() => Math.min(width - 32, 480), [width]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   async function handleRegister() {
     if (loading) return;
@@ -197,6 +203,17 @@ export default function Register() {
                 </Text>
               </TouchableOpacity>
             ) : null}
+
+            <Text
+              style={[
+                styles.linkText,
+                { marginTop: -2, marginBottom: 12, textAlign: "left" },
+              ]}
+            >
+              {isCursoObrigatorio
+                ? "O curso do aluno e obrigatorio no cadastro."
+                : "Para professor e coordenacao, o curso permanece opcional neste fluxo."}
+            </Text>
 
             <RadioSelect
               options={["Aluno", "Professor", "Coordenacao"]}

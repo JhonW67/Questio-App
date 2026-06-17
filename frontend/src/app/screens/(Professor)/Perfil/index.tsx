@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../../../context/AuthContext";
+import { useProfileData } from "../../../../hooks/useProfileData";
 import { ProfileHeader } from "../../../../components/profileHeader";
 import { StatsGrid } from "../../../../components/cardProfile";
 import { BadgeList } from "../../../../components/badgeProfile";
@@ -18,7 +19,8 @@ import { styles } from "../../../../styles/Perfil";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 export default function Perfil() {
-  const { user, logout, loading } = useAuth();
+  const { logout } = useAuth();
+  const { perfil: user, loadingPerfil } = useProfileData();
   const router = useRouter();
   const stats = getStats(user);
   const badges = useMemo(
@@ -38,7 +40,7 @@ export default function Perfil() {
     router.replace("/screens/(Authenticator)/Login");
   }
 
-  if (loading) {
+  if (loadingPerfil) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color="#0f62ff" />

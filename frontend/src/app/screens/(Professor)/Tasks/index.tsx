@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Input } from "../../../../components/input/input";
@@ -36,6 +36,7 @@ export default function CreateTask() {
     loading,
     submitting,
     error,
+    refresh,
     submitTask,
   } = useProfessorTasks();
 
@@ -75,6 +76,12 @@ export default function CreateTask() {
       Alert.alert("Erro", error);
     }
   }, [error]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const handlePickDocument = async () => {
     try {
@@ -136,7 +143,7 @@ export default function CreateTask() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScreenLoader visible={loading} message="Salvando tarefa no diário..." />
+      <ScreenLoader visible={submitting} message="Salvando tarefa no diario..." />
 
       <View style={styles.header}>
         <View style={styles.logoContainer}>
@@ -225,9 +232,16 @@ export default function CreateTask() {
             </View>
           </TouchableOpacity>
 
+          {disciplinaSelecionadaId && !loading && turmasDaDisciplina.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Nenhuma turma vinculada a disciplina selecionada.
+            </Text>
+          ) : null}
+
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setShowTurmaModal(true)}
+            disabled={!disciplinaSelecionadaId || turmasDaDisciplina.length === 0}
           >
             <View pointerEvents="none">
               <Input

@@ -23,6 +23,10 @@ interface UseTurmasOptions {
   autoLoad?: boolean;
 }
 
+function sortTurmasByName(items: Turma[]) {
+  return [...items].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 export function useTurmas(options: UseTurmasOptions = {}) {
   const {
     idCurso,
@@ -44,7 +48,7 @@ export function useTurmas(options: UseTurmasOptions = {}) {
     try {
       setLoading(true);
       setError(null);
-      setTurmas(await getTurmas());
+      setTurmas(sortTurmasByName(await getTurmas()));
     } catch (err: any) {
       setError(
         err?.response?.data?.message || "Não foi possível carregar as turmas.",
@@ -97,13 +101,15 @@ export function useTurmas(options: UseTurmasOptions = {}) {
 
   const filteredTurmas = useMemo(
     () =>
-      turmas.filter((turma) => {
+      sortTurmasByName(
+        turmas.filter((turma) => {
         if (idCurso && turma.idCurso !== idCurso) return false;
         if (idDisciplina && turma.idDisciplina !== idDisciplina) return false;
         if (idProfessor && turma.idProfessor !== idProfessor) return false;
         if (semestre && turma.semestre !== semestre) return false;
         return true;
-      }),
+        }),
+      ),
     [idCurso, idDisciplina, idProfessor, semestre, turmas],
   );
 
@@ -112,7 +118,7 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       setSaving(true);
       setError(null);
       const turma = await createTurma(payload);
-      setTurmas((prev) => [turma, ...prev]);
+      setTurmas((prev) => sortTurmasByName([...prev, turma]));
       return turma;
     } catch (err: any) {
       const message =

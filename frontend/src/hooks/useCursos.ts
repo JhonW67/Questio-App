@@ -21,7 +21,9 @@ export function useCursos(autoLoad = true) {
       setCursos(await getCursos());
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || "Não foi possível carregar os cursos.",
+        err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
+          "Não foi possível carregar os cursos.",
       );
     } finally {
       setLoading(false);
@@ -46,7 +48,9 @@ export function useCursos(autoLoad = true) {
       return curso;
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || "Não foi possível salvar o curso.";
+        err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
+        "Não foi possível salvar o curso.";
       setError(message);
       throw new Error(message);
     } finally {
@@ -67,7 +71,9 @@ export function useCursos(autoLoad = true) {
         return curso;
       } catch (err: any) {
         const message =
-          err?.response?.data?.message || "Não foi possível atualizar o curso.";
+          err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
+          "Não foi possível atualizar o curso.";
         setError(message);
         throw new Error(message);
       } finally {
@@ -107,7 +113,9 @@ export function useCursos(autoLoad = true) {
         return disciplina;
       } catch (err: any) {
         const message =
-          err?.response?.data?.message || "Não foi possível adicionar a disciplina.";
+          err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
+          "Não foi possível adicionar a disciplina.";
         setError(message);
         throw new Error(message);
       } finally {

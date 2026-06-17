@@ -26,6 +26,7 @@ public class AcademicService {
     private final CursoRepository cursoRepository;
     private final DisciplinaRepository disciplinaRepository;
 
+    @Transactional
     public List<CursoResponseDTO> listarCursos() {
         return cursoRepository.findAllByOrderByNomeAsc().stream()
                 .map(this::mapCurso)

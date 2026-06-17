@@ -30,6 +30,7 @@ export function useDisciplinas(options: UseDisciplinasOptions = {}) {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
         "Não foi possível carregar as disciplinas.";
       setError(message);
       setDisciplinas([]);

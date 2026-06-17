@@ -40,7 +40,9 @@ export default function Tasks() {
     } catch (error: any) {
       Alert.alert(
         "Erro",
-        error?.response?.data?.message || "Nao foi possivel carregar as tarefas.",
+        error?.response?.data?.message ||
+          error?.response?.data?.mensagem ||
+          "Nao foi possivel carregar as tarefas.",
       );
     } finally {
       setLoading(false);
@@ -124,6 +126,7 @@ export default function Tasks() {
       Alert.alert(
         "Erro",
         error?.response?.data?.message ||
+          error?.response?.data?.mensagem ||
           error?.message ||
           "Nao foi possivel enviar a tarefa.",
       );

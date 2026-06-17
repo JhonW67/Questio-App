@@ -90,6 +90,7 @@ public class ClassService {
         );
     }
 
+    @Transactional
     public List<ClassResponseDTO> listarTurmasVisiveis() {
         User usuario = getUsuarioAutenticado();
         TipoUsuario tipoUsuario = TipoUsuario.fromString(usuario.getTipoUsuario());

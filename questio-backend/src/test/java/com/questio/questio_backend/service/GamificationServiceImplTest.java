@@ -76,7 +76,7 @@ class GamificationServiceImplTest {
     }
 
     @Test
-    void checkin_quandoFicouDiaSemEntrar_resetaStreakPara0() {
+    void checkin_quandoFicouDiaSemEntrar_reiniciaStreakPara1() {
         var user = novoUsuarioBase();
         user.setStreakAtual(7);
         // Ex.: último check-in foi há 2 dias => ficou pelo menos 1 dia inteiro sem entrar
@@ -85,10 +85,10 @@ class GamificationServiceImplTest {
 
         var response = gamificationService.checkin(user.getIdUsuario());
 
-        assertThat(response.streakAtual()).isEqualTo(0);
+        assertThat(response.streakAtual()).isEqualTo(1);
         var salvo = userRepository.findById(user.getIdUsuario()).orElseThrow();
-        assertThat(salvo.getStreakAtual()).isEqualTo(0);
-        // Para não resetar repetidamente no mesmo dia, o último check-in deve ser atualizado.
+        assertThat(salvo.getStreakAtual()).isEqualTo(1);
+        // Ao voltar no dia atual após perder a sequência, o usuário inicia uma nova ofensiva.
         assertThat(salvo.getUltimoCheckinEm()).isNotNull();
     }
 }

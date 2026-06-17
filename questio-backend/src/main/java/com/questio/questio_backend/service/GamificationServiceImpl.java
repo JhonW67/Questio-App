@@ -35,7 +35,7 @@ public class GamificationServiceImpl implements GamificationService {
         } else if (ultimoDia.isEqual(hoje.minusDays(1))) {
             user.setStreakAtual(streak + 1);
         } else {
-            user.setStreakAtual(0);
+            user.setStreakAtual(1);
         }
 
         Integer maiorStreakAtual = user.getMaiorStreak() == null ? 0 : user.getMaiorStreak();

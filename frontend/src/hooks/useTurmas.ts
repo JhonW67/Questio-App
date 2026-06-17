@@ -51,7 +51,9 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       setTurmas(sortTurmasByName(await getTurmas()));
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || "Não foi possível carregar as turmas.",
+        err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
+          "Não foi possível carregar as turmas.",
       );
     } finally {
       setLoading(false);
@@ -68,6 +70,7 @@ export function useTurmas(options: UseTurmasOptions = {}) {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
         "Não foi possível carregar os professores.";
       setError(message);
       return [];
@@ -85,7 +88,9 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       return data;
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || "Não foi possível carregar os alunos.";
+        err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
+        "Não foi possível carregar os alunos.";
       setError(message);
       return [];
     } finally {
@@ -122,7 +127,9 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       return turma;
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || "Não foi possível criar a turma.";
+        err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
+        "Não foi possível criar a turma.";
       setError(message);
       throw new Error(message);
     } finally {
@@ -139,6 +146,7 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       } catch (err: any) {
         const message =
           err?.response?.data?.message ||
+          err?.response?.data?.mensagem ||
           "Não foi possível matricular os alunos.";
         setError(message);
         throw new Error(message);
@@ -157,7 +165,9 @@ export function useTurmas(options: UseTurmasOptions = {}) {
       setTurmas((prev) => prev.filter((item) => item.idTurma !== idTurma));
     } catch (err: any) {
       const message =
-        err?.response?.data?.message || "Não foi possível remover a turma.";
+        err?.response?.data?.message ||
+        err?.response?.data?.mensagem ||
+        "Não foi possível remover a turma.";
       setError(message);
       throw new Error(message);
     } finally {

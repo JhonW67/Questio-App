@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -36,7 +36,7 @@ export default function Home() {
     progressoSemanal,
   } = useTarefas();
 
-  const carregarPerfilAluno = async () => {
+  const carregarPerfilAluno = useCallback(async () => {
     try {
       const { data } = await api.get("/user/me");
       setUserData((atual) => ({
@@ -50,27 +50,11 @@ export default function Home() {
     } catch (error) {
       console.error("Erro ao carregar perfil do aluno:", error);
     }
-  };
-
-  const executarCheckinDiario = async () => {
-    try {
-      const response = await api.post("/gamification/checkin");
-
-      if (response.data) {
-        setUserData(response.data);
-      }
-    } catch (error: any) {
-      console.error(
-        "Erro na validação automática do streak:",
-        error?.response?.data || error,
-      );
-    }
-  };
+  }, []);
 
   useEffect(() => {
     carregarPerfilAluno();
-    executarCheckinDiario();
-  }, []);
+  }, [carregarPerfilAluno]);
 
   // Validação para o StreakCard: Compara se o último check-in salvo no banco foi feito HOJE
   const verificarCheckinHoje = () => {

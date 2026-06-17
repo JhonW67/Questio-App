@@ -13,6 +13,7 @@ import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.SubmitRepository;
 import com.questio.questio_backend.repository.TaskMaterialRepository;
 import com.questio.questio_backend.repository.TaskRepository;
+import com.questio.questio_backend.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class TaskService {
 
     private final TaskRepository tarefaRepository;
@@ -41,6 +43,7 @@ public class TaskService {
     private final TaskMaterialStorageService taskMaterialStorageService;
     private final TaskMaterialRepository taskMaterialRepository;
     private final TokenService tokenService;
+    private final UserRepository userRepository;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -50,6 +53,12 @@ public class TaskService {
         }
 
         return user;
+    }
+
+    private User getUsuarioAutenticadoComTurmas() {
+        User user = getUsuarioAutenticado();
+        return userRepository.findByIdUsuario(user.getIdUsuario())
+                .orElseThrow(() -> new RuntimeException("Usuário não autenticado"));
     }
 
     @Transactional
@@ -108,7 +117,7 @@ public class TaskService {
             MultipartFile arquivo,
             boolean allowEmptySubmission
     ) {
-        User aluno = getUsuarioAutenticado();
+        User aluno = getUsuarioAutenticadoComTurmas();
 
         if (Boolean.TRUE.equals(aluno.getAcessoBloqueado())) {
             throw new RuntimeException("Acesso bloqueado. Entre em contato com a coordenação.");
@@ -154,11 +163,7 @@ public class TaskService {
     }
 
     public List<TaskResponseDTO> listarTarefasDoAluno() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !(authentication.getPrincipal() instanceof User aluno)) {
-            throw new RuntimeException("Usuário não autenticado");
-        }
+        User aluno = getUsuarioAutenticadoComTurmas();
 
         if (Boolean.TRUE.equals(aluno.getAcessoBloqueado())) {
             throw new RuntimeException("Acesso bloqueado. Entre em contato com a coordenação.");
@@ -248,7 +253,7 @@ public class TaskService {
         Task tarefa = tarefaRepository.findById(idTarefa)
                 .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
 
-        User usuario = getUsuarioAutenticado();
+        User usuario = getUsuarioAutenticadoComTurmas();
         boolean isAluno = tarefa.getTurma() != null && usuario.getTurmas() != null && usuario.getTurmas().contains(tarefa.getTurma());
         boolean isProfessorDaTurma = tarefa.getTurma() != null
                 && tarefa.getTurma().getProfessor() != null
@@ -264,7 +269,7 @@ public class TaskService {
     }
 
     public TaskMaterial buscarMaterialComPermissao(UUID idMaterial) {
-        User usuario = getUsuarioAutenticado();
+        User usuario = getUsuarioAutenticadoComTurmas();
         TaskMaterial material = taskMaterialRepository.findById(idMaterial)
                 .orElseThrow(() -> new RuntimeException("Material não encontrado"));
 

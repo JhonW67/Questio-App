@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,41 +8,22 @@ import {
   Modal,
   Alert,
   Image,
+  TextInput,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { styles } from "../../../../styles/Desempenho";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
-import { useAuth } from "../../../../context/AuthContext";
-import api from "../../../../services/api";
-
-
-interface TarefaPendente {
-  id: string;
-  titulo: string;
-  dataEntrega: string;
-  resposta?: string;
-}
-
-interface AlunoDesempenho {
-  id: string;
-  nome: string;
-  tarefasConcluidas: number;
-  tarefasTotal: number;
-  mediaNotas: number | null;
-  tarefasPendentes: TarefaPendente[];
-}
-
-interface AvaliacaoIA {
-  nota: number;
-  label: string;
-  feedback: string;
-}
-
-interface Turma {
-  id: string;
-  nome: string;
-}
-
+import {
+  evaluateSubmission,
+  getPerformanceTurmas,
+  getTurmaPerformance,
+} from "../../../../services/api";
+import type {
+  PerformancePendingSubmission,
+  PerformanceStudent,
+  PerformanceTurma,
+} from "../../../../types/academic";
 
 function notaColor(nota: number | null): string {
   if (nota === null) return "#5D708A";
@@ -51,154 +32,104 @@ function notaColor(nota: number | null): string {
   return "#FF6B6B";
 }
 
-function conclusaoPercent(aluno: AlunoDesempenho): number {
+function conclusaoPercent(aluno: PerformanceStudent): number {
   if (aluno.tarefasTotal === 0) return 0;
   return Math.round((aluno.tarefasConcluidas / aluno.tarefasTotal) * 100);
 }
 
-function gerarAvaliacaoAutomatica(
-  resposta: string,
-  tituloTarefa: string,
-): AvaliacaoIA {
-  const textoLimpo = resposta.trim();
-
-  if (!textoLimpo) {
-    return {
-      nota: 20,
-      label: "Insuficiente",
-      feedback: `A resposta para "${tituloTarefa}" nao foi enviada ou esta vazia. Oriente o aluno a apresentar o raciocinio e incluir os principais conceitos da atividade.`,
-    };
-  }
-
-  const palavras = textoLimpo.split(/\s+/).filter(Boolean);
-  const frases = textoLimpo
-    .split(/[.!?]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const palavrasChave = [
-    "porque",
-    "portanto",
-    "exemplo",
-    "conceito",
-    "resultado",
-    "analise",
-    "processo",
-    "solucao",
-  ];
-  const acertosDeEstrutura = palavrasChave.filter((palavra) =>
-    textoLimpo.toLowerCase().includes(palavra),
-  ).length;
-
-  const notaBase =
-    25 +
-    Math.min(palavras.length, 120) * 0.45 +
-    Math.min(frases.length, 6) * 4 +
-    acertosDeEstrutura * 5;
-  const nota = Math.max(20, Math.min(100, Math.round(notaBase)));
-
-  if (nota >= 90) {
-    return {
-      nota,
-      label: "Excelente",
-      feedback:
-        "A resposta esta bem desenvolvida, apresenta boa organizacao e demonstra dominio do conteudo. Vale apenas revisar detalhes finos para manter a precisao academica.",
-    };
-  }
-
-  if (nota >= 75) {
-    return {
-      nota,
-      label: "Otimo",
-      feedback:
-        "A resposta cobre os pontos principais e mostra entendimento consistente da atividade. Pode ganhar ainda mais qualidade com exemplos mais objetivos ou justificativas mais profundas.",
-    };
-  }
-
-  if (nota >= 60) {
-    return {
-      nota,
-      label: "Bom",
-      feedback:
-        "A resposta atende parcialmente ao esperado, mas ainda pode evoluir em clareza e aprofundamento. Recomende ao aluno conectar melhor os conceitos com a proposta da tarefa.",
-    };
-  }
-
-  if (nota >= 40) {
-    return {
-      nota,
-      label: "Regular",
-      feedback:
-        "A resposta demonstra esforco inicial, mas ainda esta superficial ou pouco estruturada. Oriente o aluno a desenvolver melhor os argumentos e detalhar o raciocinio.",
-    };
-  }
-
-  return {
-    nota,
-    label: "Insuficiente",
-    feedback:
-      "A resposta nao apresenta elementos suficientes para uma boa avaliacao. O ideal e refazer a atividade com mais contexto, explicacoes e relacao direta com o enunciado.",
-  };
-}
-
-
 export default function Desempenho() {
-  const { user } = useAuth();
-
-  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [turmas, setTurmas] = useState<PerformanceTurma[]>([]);
   const [turmaSelecionada, setTurmaSelecionada] = useState<string | null>(null);
-  const [alunos, setAlunos] = useState<AlunoDesempenho[]>([]);
+  const [alunos, setAlunos] = useState<PerformanceStudent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTurmas, setLoadingTurmas] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [alunoSelecionado, setAlunoSelecionado] = useState<AlunoDesempenho | null>(null);
-  const [tarefaSelecionada, setTarefaSelecionada] = useState<TarefaPendente | null>(null);
-  const [avaliando, setAvaliando] = useState(false);
-  const [avaliacao, setAvaliacao] = useState<AvaliacaoIA | null>(null);
+  const [alunoSelecionado, setAlunoSelecionado] =
+    useState<PerformanceStudent | null>(null);
+  const [submissaoSelecionada, setSubmissaoSelecionada] =
+    useState<PerformancePendingSubmission | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [notaInput, setNotaInput] = useState("");
+  const [feedbackInput, setFeedbackInput] = useState("");
+
+  const carregarTurmas = useCallback(async () => {
+    try {
+      setLoadingTurmas(true);
+      const data = await getPerformanceTurmas();
+      setTurmas(data);
+      setTurmaSelecionada((atual) => {
+        if (atual && data.some((item) => item.idTurma === atual)) {
+          return atual;
+        }
+        return data[0]?.idTurma ?? null;
+      });
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.response?.data?.message ||
+          "Nao foi possivel carregar as turmas do professor.",
+      );
+    } finally {
+      setLoadingTurmas(false);
+    }
+  }, []);
+
+  const carregarDesempenho = useCallback(async (idTurma: string) => {
+    try {
+      setLoading(true);
+      setAlunos(await getTurmaPerformance(idTurma));
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.response?.data?.message ||
+          "Nao foi possivel carregar o desempenho da turma.",
+      );
+      setAlunos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!user?.token) return;
-    async function fetchTurmas() {
-      try {
-        const { data } = await api.get("/turmas", {
-          headers: { Authorization: `Bearer ${user!.token}` },
-        });
-        setTurmas(data);
-        if (data.length > 0) setTurmaSelecionada(data[0].id);
-      } catch (e) {
-        console.log(e);
+    carregarTurmas();
+  }, [carregarTurmas]);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarTurmas();
+      if (turmaSelecionada) {
+        carregarDesempenho(turmaSelecionada);
       }
-    }
-    fetchTurmas();
-  }, [user?.token]);
+    }, [carregarDesempenho, carregarTurmas, turmaSelecionada]),
+  );
 
   useEffect(() => {
-    if (!turmaSelecionada || !user?.token) return;
-    async function fetchAlunos() {
-      try {
-        setLoading(true);
-        const { data } = await api.get(`/turmas/${turmaSelecionada}/desempenho`, {
-          headers: { Authorization: `Bearer ${user!.token}` },
-        });
-        setAlunos(data);
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setLoading(false);
-      }
+    if (turmaSelecionada) {
+      carregarDesempenho(turmaSelecionada);
+    } else {
+      setAlunos([]);
     }
-    fetchAlunos();
-  }, [turmaSelecionada, user?.token]);
+  }, [carregarDesempenho, turmaSelecionada]);
 
-  const mediaGeral = (() => {
+  const mediaGeral = useMemo(() => {
     const comNota = alunos.filter((a) => a.mediaNotas !== null);
     if (comNota.length === 0) return null;
-    return Math.round(comNota.reduce((acc, a) => acc + (a.mediaNotas ?? 0), 0) / comNota.length);
-  })();
+    return Math.round(
+      comNota.reduce((acc, a) => acc + (a.mediaNotas ?? 0), 0) / comNota.length,
+    );
+  }, [alunos]);
 
-  const mediaConclusao =
-    alunos.length === 0
-      ? 0
-      : Math.round(alunos.reduce((acc, a) => acc + conclusaoPercent(a), 0) / alunos.length);
+  const mediaConclusao = useMemo(
+    () =>
+      alunos.length === 0
+        ? 0
+        : Math.round(
+            alunos.reduce((acc, a) => acc + conclusaoPercent(a), 0) /
+              alunos.length,
+          ),
+    [alunos],
+  );
 
   const faixas = [
     { label: "90-100", min: 90, max: 100, color: "#00D2B4" },
@@ -214,55 +145,51 @@ export default function Desempenho() {
 
   const maxFaixaCount = Math.max(...faixas.map((f) => countFaixa(f.min, f.max)), 1);
 
-  function abrirModal(aluno: AlunoDesempenho, tarefa: TarefaPendente) {
+  function abrirModal(
+    aluno: PerformanceStudent,
+    submissao: PerformancePendingSubmission,
+  ) {
     setAlunoSelecionado(aluno);
-    setTarefaSelecionada(tarefa);
-    setAvaliacao(null);
+    setSubmissaoSelecionada(submissao);
+    setNotaInput(
+      submissao.nota === null || submissao.nota === undefined
+        ? ""
+        : String(Math.round(submissao.nota)),
+    );
+    setFeedbackInput(submissao.feedback ?? "");
     setModalVisible(true);
   }
 
-  async function executarAvaliacaoIA() {
-    if (!tarefaSelecionada || !alunoSelecionado) return;
-    setAvaliando(true);
+  async function salvarAvaliacao() {
+    if (!submissaoSelecionada || !alunoSelecionado) return;
+
+    const nota = Number(notaInput);
+    if (!Number.isFinite(nota) || nota < 0 || nota > 100) {
+      Alert.alert("Atenção", "Informe uma nota valida entre 0 e 100.");
+      return;
+    }
+
+    setSaving(true);
     try {
-      const resposta = tarefaSelecionada.resposta || "";
-      const parsed = gerarAvaliacaoAutomatica(
-        resposta,
-        tarefaSelecionada.titulo,
-      );
-      setAvaliacao(parsed);
-
-      await api.patch(
-        `/tarefas/${tarefaSelecionada.id}/avaliar`,
-        {
-          nota: parsed.nota,
-          feedback: parsed.feedback,
-          avaliadoPorIA: false,
-        },
-        {
-          headers: { Authorization: `Bearer ${user!.token}` },
-        },
-      );
-
-      setAlunos((prev) =>
-        prev.map((a) =>
-          a.id === alunoSelecionado.id
-            ? {
-                ...a,
-                tarefasPendentes: a.tarefasPendentes.filter((t) => t.id !== tarefaSelecionada.id),
-                tarefasConcluidas: a.tarefasConcluidas + 1,
-              }
-            : a
-        )
-      );
-    } catch (e) {
+      await evaluateSubmission({
+        idSubmissao: submissaoSelecionada.idSubmissao,
+        nota,
+        feedback: feedbackInput.trim(),
+      });
+      if (turmaSelecionada) {
+        await carregarDesempenho(turmaSelecionada);
+      }
+      setModalVisible(false);
+      Alert.alert("Sucesso", "Avaliação registrada com sucesso.");
+    } catch (error: any) {
       Alert.alert(
         "Erro",
-        "Nao foi possivel concluir a avaliacao automatica. Tente novamente.",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Nao foi possivel salvar a avaliacao.",
       );
-      console.log(e);
     } finally {
-      setAvaliando(false);
+      setSaving(false);
     }
   }
 
@@ -279,7 +206,11 @@ export default function Desempenho() {
         <NotificationButton style={styles.notification} />
       </View>
 
-      {turmas.length > 0 && (
+      {loadingTurmas ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color="#00D2B4" size="small" />
+        </View>
+      ) : turmas.length > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -287,16 +218,28 @@ export default function Desempenho() {
         >
           {turmas.map((t) => (
             <TouchableOpacity
-              key={t.id}
-              style={[styles.tab, turmaSelecionada === t.id && styles.tabActive]}
-              onPress={() => setTurmaSelecionada(t.id)}
+              key={t.idTurma}
+              style={[
+                styles.tab,
+                turmaSelecionada === t.idTurma && styles.tabActive,
+              ]}
+              onPress={() => setTurmaSelecionada(t.idTurma)}
             >
-              <Text style={[styles.tabText, turmaSelecionada === t.id && styles.tabTextActive]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  turmaSelecionada === t.idTurma && styles.tabTextActive,
+                ]}
+              >
                 {t.nome}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+      ) : (
+        <Text style={styles.emptyText}>
+          Nenhuma turma vinculada ao seu perfil no momento.
+        </Text>
       )}
 
       {loading ? (
@@ -356,9 +299,9 @@ export default function Desempenho() {
             .sort((a, b) => (b.mediaNotas ?? -1) - (a.mediaNotas ?? -1))
             .map((aluno, index) => {
               const cor = notaColor(aluno.mediaNotas);
-              const temPendente = aluno.tarefasPendentes.length > 0;
+              const temPendente = aluno.pendenciasAvaliacao.length > 0;
               return (
-                <View key={aluno.id} style={styles.alunoCard}>
+                <View key={aluno.idAluno} style={styles.alunoCard}>
                   <View style={styles.alunoTop}>
                     <View style={styles.alunoLeft}>
                       {index === 0
@@ -368,7 +311,8 @@ export default function Desempenho() {
                       <View>
                         <Text style={styles.alunoNome}>{aluno.nome}</Text>
                         <Text style={styles.alunoSub}>
-                          {aluno.tarefasConcluidas}/{aluno.tarefasTotal} tarefas
+                          {aluno.tarefasConcluidas}/{aluno.tarefasTotal} entregas •{" "}
+                          {aluno.tarefasSemEntrega} sem envio
                         </Text>
                       </View>
                     </View>
@@ -386,17 +330,24 @@ export default function Desempenho() {
 
                   {temPendente && (
                     <View style={styles.pendentesContainer}>
-                      {aluno.tarefasPendentes.map((tarefa) => (
-                        <View key={tarefa.id} style={styles.tarefaPendenteRow}>
+                      {aluno.pendenciasAvaliacao.map((submissao) => (
+                        <View
+                          key={submissao.idSubmissao}
+                          style={styles.tarefaPendenteRow}
+                        >
                           <Text style={styles.tarefaPendenteNome} numberOfLines={1}>
-                            {tarefa.titulo}
+                            {submissao.titulo}
                           </Text>
                           <TouchableOpacity
                             style={styles.btnIA}
-                            onPress={() => abrirModal(aluno, tarefa)}
+                            onPress={() => abrirModal(aluno, submissao)}
                           >
-                            <MaterialCommunityIcons name="robot-outline" size={13} color="#050E1D" />
-                            <Text style={styles.btnIAText}>Avaliar resposta</Text>
+                            <MaterialCommunityIcons
+                              name="clipboard-check-outline"
+                              size={13}
+                              color="#050E1D"
+                            />
+                            <Text style={styles.btnIAText}>Avaliar entrega</Text>
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -409,13 +360,18 @@ export default function Desempenho() {
       )}
 
       {/* Modal IA */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitulo}>{alunoSelecionado?.nome}</Text>
-                <Text style={styles.modalTarefa}>{tarefaSelecionada?.titulo}</Text>
+                <Text style={styles.modalTarefa}>{submissaoSelecionada?.titulo}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={22} color="#5D708A" />
@@ -423,58 +379,86 @@ export default function Desempenho() {
             </View>
 
             <View style={styles.respostaBox}>
-              {tarefaSelecionada?.resposta ? (
-                <>
-                  <Text style={styles.respostaLabel}>Resposta do Aluno:</Text>
-                  <Text style={styles.respostaTexto}>{tarefaSelecionada.resposta}</Text>
-                </>
-              ) : (
-                <Text style={styles.semResposta}>Ainda não enviou a resposta completa...</Text>
-              )}
+              <Text style={styles.respostaLabel}>Resumo da submissão</Text>
+              <Text style={styles.respostaTexto}>
+                Prazo:{" "}
+                {submissaoSelecionada?.dataEntrega
+                  ? new Date(submissaoSelecionada.dataEntrega).toLocaleDateString(
+                      "pt-BR",
+                    )
+                  : "Não informado"}
+              </Text>
+              <Text style={styles.respostaTexto}>
+                Enviado em:{" "}
+                {submissaoSelecionada?.enviadoEm
+                  ? new Date(submissaoSelecionada.enviadoEm).toLocaleString(
+                      "pt-BR",
+                    )
+                  : "Não informado"}
+              </Text>
+              <Text style={styles.respostaTexto}>
+                Status: {submissaoSelecionada?.status || "Concluido"}
+              </Text>
             </View>
 
-            {avaliacao && (
-              <View style={styles.avaliacaoBox}>
-                <View style={styles.avaliacaoHeaderRow}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={15} color="#F5C542" />
-                  <Text style={styles.avaliacaoHeaderText}>Avaliacao automatica</Text>
-                </View>
-                <Text style={styles.avaliacaoNota}>
-                  Nota{" "}
-                  <Text style={{ color: notaColor(avaliacao.nota) }}>
-                    {avaliacao.nota}% — {avaliacao.label}
-                  </Text>
-                </Text>
-                <Text style={styles.avaliacaoFeedback}>{avaliacao.feedback}</Text>
-                <View style={styles.avaliacaoBtns}>
-                  <TouchableOpacity style={styles.btnConcordar} onPress={() => setModalVisible(false)}>
-                    <Ionicons name="checkmark" size={15} color="#00D2B4" />
-                    <Text style={styles.btnConcordarText}>Concordar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.btnAjustar} onPress={() => setModalVisible(false)}>
-                    <Ionicons name="create-outline" size={15} color="#E8EDF8" />
-                    <Text style={styles.btnAjustarText}>Ajustar Nota</Text>
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.avaliacaoBox}>
+              <View style={styles.avaliacaoHeaderRow}>
+                <MaterialCommunityIcons
+                  name="clipboard-edit-outline"
+                  size={15}
+                  color="#F5C542"
+                />
+                <Text style={styles.avaliacaoHeaderText}>Avaliação do professor</Text>
               </View>
-            )}
+              <Text style={styles.respostaLabel}>Nota (0 a 100)</Text>
+              <TextInput
+                value={notaInput}
+                onChangeText={(value) => setNotaInput(value.replace(/[^0-9]/g, ""))}
+                keyboardType="numeric"
+                placeholder="Ex: 85"
+                placeholderTextColor="#5D708A"
+                style={[
+                  styles.respostaBox,
+                  { color: "#E8EDF8", paddingVertical: 12, marginBottom: 8 },
+                ]}
+              />
+              <Text style={styles.respostaLabel}>Feedback</Text>
+              <TextInput
+                value={feedbackInput}
+                onChangeText={setFeedbackInput}
+                placeholder="Descreva os pontos fortes e o que precisa melhorar."
+                placeholderTextColor="#5D708A"
+                multiline
+                numberOfLines={4}
+                style={[
+                  styles.respostaBox,
+                  {
+                    color: "#E8EDF8",
+                    minHeight: 120,
+                    textAlignVertical: "top",
+                  },
+                ]}
+              />
+            </View>
 
-            {!avaliacao && (
-              <TouchableOpacity
-                style={[styles.btnAvaliarIA, avaliando && { opacity: 0.6 }]}
-                onPress={executarAvaliacaoIA}
-                disabled={avaliando}
-              >
-                {avaliando ? (
-                  <ActivityIndicator color="#050E1D" size="small" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="robot-outline" size={16} color="#050E1D" />
-                    <Text style={styles.btnAvaliarIAText}>Avaliar automaticamente</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.btnAvaliarIA, saving && { opacity: 0.6 }]}
+              onPress={salvarAvaliacao}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color="#050E1D" size="small" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="content-save-outline"
+                    size={16}
+                    color="#050E1D"
+                  />
+                  <Text style={styles.btnAvaliarIAText}>Salvar avaliação</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

@@ -100,6 +100,33 @@ export interface StudentTask {
   categoria?: string | null;
 }
 
+export interface PerformanceTurma {
+  idTurma: string;
+  nome: string;
+}
+
+export interface PerformancePendingSubmission {
+  idSubmissao: string;
+  idTarefa: string;
+  titulo: string;
+  dataEntrega: string | null;
+  enviadoEm: string | null;
+  status: string | null;
+  nota: number | null;
+  feedback: string | null;
+}
+
+export interface PerformanceStudent {
+  idAluno: string;
+  nome: string;
+  tarefasConcluidas: number;
+  tarefasTotal: number;
+  entregasPendentesAvaliacao: number;
+  tarefasSemEntrega: number;
+  mediaNotas: number | null;
+  pendenciasAvaliacao: PerformancePendingSubmission[];
+}
+
 export interface AcademicEvent {
   id: string;
   idProfessor: string | null;
@@ -291,5 +318,58 @@ export function normalizeStudentTask(raw: any): StudentTask {
       raw?.categoria === null || raw?.categoria === undefined
         ? null
         : String(raw.categoria),
+  };
+}
+
+export function normalizePerformanceTurma(raw: any): PerformanceTurma {
+  return {
+    idTurma: String(raw?.idTurma ?? raw?.id ?? ""),
+    nome: String(raw?.nome ?? ""),
+  };
+}
+
+export function normalizePerformancePendingSubmission(
+  raw: any,
+): PerformancePendingSubmission {
+  return {
+    idSubmissao: String(raw?.idSubmissao ?? raw?.idSubmit ?? ""),
+    idTarefa: String(raw?.idTarefa ?? raw?.idTask ?? ""),
+    titulo: String(raw?.titulo ?? ""),
+    dataEntrega:
+      raw?.dataEntrega === null || raw?.dataEntrega === undefined
+        ? null
+        : String(raw.dataEntrega),
+    enviadoEm:
+      raw?.enviadoEm === null || raw?.enviadoEm === undefined
+        ? null
+        : String(raw.enviadoEm),
+    status:
+      raw?.status === null || raw?.status === undefined
+        ? null
+        : String(raw.status),
+    nota:
+      raw?.nota === null || raw?.nota === undefined ? null : Number(raw.nota),
+    feedback:
+      raw?.feedback === null || raw?.feedback === undefined
+        ? null
+        : String(raw.feedback),
+  };
+}
+
+export function normalizePerformanceStudent(raw: any): PerformanceStudent {
+  return {
+    idAluno: String(raw?.idAluno ?? raw?.id ?? ""),
+    nome: String(raw?.nome ?? ""),
+    tarefasConcluidas: Number(raw?.tarefasConcluidas ?? 0),
+    tarefasTotal: Number(raw?.tarefasTotal ?? 0),
+    entregasPendentesAvaliacao: Number(raw?.entregasPendentesAvaliacao ?? 0),
+    tarefasSemEntrega: Number(raw?.tarefasSemEntrega ?? 0),
+    mediaNotas:
+      raw?.mediaNotas === null || raw?.mediaNotas === undefined
+        ? null
+        : Number(raw.mediaNotas),
+    pendenciasAvaliacao: Array.isArray(raw?.pendenciasAvaliacao)
+      ? raw.pendenciasAvaliacao.map(normalizePerformancePendingSubmission)
+      : [],
   };
 }

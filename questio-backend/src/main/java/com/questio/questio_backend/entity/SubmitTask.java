@@ -30,5 +30,8 @@ public class SubmitTask {
     private String arquivoUrl;
     private String status;
     private Float nota;
+    @Column(columnDefinition = "text")
+    private String feedback;
+    private LocalDateTime avaliadoEm;
     private LocalDateTime enviadoEm;
 }

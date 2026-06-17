@@ -17,4 +17,6 @@ public interface SubmitRepository extends JpaRepository<SubmitTask, UUID> {
 
      List<SubmitTask> findByAluno(User aluno);
 
+     List<SubmitTask> findByTarefaTurmaIdClass(UUID idTurma);
+
 }

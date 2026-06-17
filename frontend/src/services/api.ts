@@ -10,6 +10,8 @@ import type {
   CursoPayload,
   Disciplina,
   MatriculaPayload,
+  PerformanceStudent,
+  PerformanceTurma,
   Professor,
   RegisterPayload,
   StudentTask,
@@ -21,6 +23,8 @@ import {
   normalizeAluno,
   normalizeCurso,
   normalizeDisciplina,
+  normalizePerformanceStudent,
+  normalizePerformanceTurma,
   normalizeProfessor,
   normalizeStudentTask,
   normalizeTurma,
@@ -140,6 +144,33 @@ export async function getStudentTasks(): Promise<StudentTask[]> {
 export async function completeStudentTask(idTask: string): Promise<string> {
   const { data } = await api.patch(`/tarefas/${idTask}/concluir`);
   return String(data?.mensagem ?? "Tarefa concluida com sucesso.");
+}
+
+export async function getPerformanceTurmas(): Promise<PerformanceTurma[]> {
+  const { data } = await api.get("/desempenho/turmas");
+  return Array.isArray(data) ? data.map(normalizePerformanceTurma) : [];
+}
+
+export async function getTurmaPerformance(
+  idTurma: string,
+): Promise<PerformanceStudent[]> {
+  const { data } = await api.get(`/desempenho/turmas/${idTurma}`);
+  return Array.isArray(data) ? data.map(normalizePerformanceStudent) : [];
+}
+
+export async function evaluateSubmission(payload: {
+  idSubmissao: string;
+  nota: number;
+  feedback?: string;
+}) {
+  const { data } = await api.patch(
+    `/desempenho/submissoes/${payload.idSubmissao}/avaliar`,
+    {
+      nota: payload.nota,
+      feedback: payload.feedback ?? "",
+    },
+  );
+  return data;
 }
 
 export async function getAcademicEvents(): Promise<AcademicEvent[]> {

@@ -29,6 +29,7 @@ public class SubmitTask {
 
     @Column(columnDefinition = "text")
     private String resposta;
+    private String arquivoNome;
     private String arquivoUrl;
     private String status;
     private Float nota;

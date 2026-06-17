@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import type { DocumentPickerAsset } from "expo-document-picker";
 import type {
   AcademicEvent,
   AcademicEventPayload,
@@ -149,10 +150,31 @@ export async function completeStudentTask(idTask: string): Promise<string> {
 export async function submitStudentTask(payload: {
   idTask: string;
   resposta?: string;
+  arquivo?: DocumentPickerAsset | null;
 }): Promise<string> {
-  const { data } = await api.post(`/tarefas/${payload.idTask}/submissoes`, {
-    resposta: payload.resposta ?? "",
-  });
+  const formData = new FormData();
+
+  if (payload.resposta?.trim()) {
+    formData.append("resposta", payload.resposta.trim());
+  }
+
+  if (payload.arquivo?.uri) {
+    formData.append("arquivo", {
+      uri: payload.arquivo.uri,
+      name: payload.arquivo.name ?? "anexo",
+      type: payload.arquivo.mimeType ?? "application/octet-stream",
+    } as any);
+  }
+
+  const { data } = await api.post(
+    `/tarefas/${payload.idTask}/submissoes/upload`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
   return String(data?.mensagem ?? "Tarefa enviada com sucesso.");
 }
 

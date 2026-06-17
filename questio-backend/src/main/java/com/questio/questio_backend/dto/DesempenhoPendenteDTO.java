@@ -12,6 +12,8 @@ public record DesempenhoPendenteDTO(
         String status,
         Float nota,
         String feedback,
-        String resposta
+        String resposta,
+        String arquivoNome,
+        String arquivoUrl
 ) {
 }

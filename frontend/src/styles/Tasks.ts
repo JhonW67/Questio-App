@@ -183,6 +183,25 @@ export const styles = StyleSheet.create({
     borderColor: '#2a3b6c',
     justifyContent: 'center',
   },
+  attachButton: {
+    marginTop: 4,
+    backgroundColor: '#0f1945',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a3b6c',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  attachButtonText: {
+    color: '#dce4f8',
+    fontWeight: '700',
+  },
+  fileName: {
+    color: '#8a99b8',
+    fontSize: 12,
+    marginTop: 8,
+  },
   dateText: {
     color: '#fff',
   },

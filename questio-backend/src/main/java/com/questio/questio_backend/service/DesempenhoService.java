@@ -165,7 +165,9 @@ public class DesempenhoService {
                 item.getStatus(),
                 item.getNota(),
                 item.getFeedback(),
-                item.getResposta()
+                item.getResposta(),
+                item.getArquivoNome(),
+                item.getArquivoUrl() != null ? "/api/tarefas/submissoes/" + item.getIdSubmit() + "/arquivo" : null
         );
     }
 }

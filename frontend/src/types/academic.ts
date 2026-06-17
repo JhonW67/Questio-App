@@ -101,6 +101,8 @@ export interface StudentTask {
   resposta: string | null;
   statusSubmissao: string | null;
   enviadoEm: string | null;
+  arquivoNome: string | null;
+  arquivoUrl: string | null;
 }
 
 export interface PerformanceTurma {
@@ -118,6 +120,8 @@ export interface PerformancePendingSubmission {
   nota: number | null;
   feedback: string | null;
   resposta: string | null;
+  arquivoNome: string | null;
+  arquivoUrl: string | null;
 }
 
 export interface PerformanceStudent {
@@ -330,6 +334,14 @@ export function normalizeStudentTask(raw: any): StudentTask {
       raw?.enviadoEm === null || raw?.enviadoEm === undefined
         ? null
         : String(raw.enviadoEm),
+    arquivoNome:
+      raw?.arquivoNome === null || raw?.arquivoNome === undefined
+        ? null
+        : String(raw.arquivoNome),
+    arquivoUrl:
+      raw?.arquivoUrl === null || raw?.arquivoUrl === undefined
+        ? null
+        : String(raw.arquivoUrl),
     categoria:
       raw?.categoria === null || raw?.categoria === undefined
         ? null
@@ -373,6 +385,14 @@ export function normalizePerformancePendingSubmission(
       raw?.resposta === null || raw?.resposta === undefined
         ? null
         : String(raw.resposta),
+    arquivoNome:
+      raw?.arquivoNome === null || raw?.arquivoNome === undefined
+        ? null
+        : String(raw.arquivoNome),
+    arquivoUrl:
+      raw?.arquivoUrl === null || raw?.arquivoUrl === undefined
+        ? null
+        : String(raw.arquivoUrl),
   };
 }
 

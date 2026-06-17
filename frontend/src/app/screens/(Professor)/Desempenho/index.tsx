@@ -407,6 +407,16 @@ export default function Desempenho() {
                   ? submissaoSelecionada.resposta
                   : "O aluno concluiu a tarefa sem enviar uma resposta textual."}
               </Text>
+              {submissaoSelecionada?.arquivoNome ? (
+                <>
+                  <Text style={[styles.respostaLabel, { marginTop: 12 }]}>
+                    Anexo enviado
+                  </Text>
+                  <Text style={styles.respostaTexto}>
+                    {submissaoSelecionada.arquivoNome}
+                  </Text>
+                </>
+              ) : null}
             </View>
 
             <View style={styles.avaliacaoBox}>

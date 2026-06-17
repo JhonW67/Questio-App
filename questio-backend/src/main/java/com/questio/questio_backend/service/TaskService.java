@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,7 @@ public class TaskService {
     private final SubmitRepository submissaoRepository;
     private final ClassRepository turmaRepository;
     private final GamificationService gamificationService;
+    private final SubmissionStorageService submissionStorageService;
 
     private User getUsuarioAutenticado() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -74,12 +76,14 @@ public class TaskService {
                 salva.getPontos(),
                 null,
                 null,
+                null,
+                null,
                 null
         );
     }
 
     @Transactional
-    public String submeterTarefa(UUID idTarefa, TaskSubmissionRequestDTO dto) {
+    public String submeterTarefa(UUID idTarefa, TaskSubmissionRequestDTO dto, MultipartFile arquivo) {
         User aluno = getUsuarioAutenticado();
 
         if (Boolean.TRUE.equals(aluno.getAcessoBloqueado())) {
@@ -98,11 +102,21 @@ public class TaskService {
         }
 
         String resposta = dto != null && dto.resposta() != null ? dto.resposta().trim() : null;
+        boolean semResposta = resposta == null || resposta.isBlank();
+        boolean semArquivo = arquivo == null || arquivo.isEmpty();
+
+        if (semResposta && semArquivo) {
+            throw new RuntimeException("Envie uma resposta textual ou anexe um arquivo para concluir a tarefa.");
+        }
+
+        SubmissionStorageService.StoredSubmissionFile storedFile = submissionStorageService.store(arquivo);
 
         SubmitTask submissao = SubmitTask.builder()
                 .aluno(aluno)
                 .tarefa(tarefa)
                 .resposta(resposta == null || resposta.isBlank() ? null : resposta)
+                .arquivoNome(storedFile != null ? storedFile.originalFilename() : null)
+                .arquivoUrl(storedFile != null ? storedFile.storedPath() : null)
                 .status("Concluido")
                 .enviadoEm(LocalDateTime.now())
                 .build();
@@ -149,9 +163,44 @@ public class TaskService {
                             t.getPontos(),
                             submissao != null ? submissao.getResposta() : null,
                             submissao != null ? submissao.getStatus() : null,
-                            submissao != null ? submissao.getEnviadoEm() : null
+                            submissao != null ? submissao.getEnviadoEm() : null,
+                            submissao != null ? submissao.getArquivoNome() : null,
+                            submissao != null ? buildAttachmentUrl(submissao) : null
                     );
                 })
                 .toList();
+    }
+
+    public SubmitTask buscarSubmissaoComPermissao(UUID idSubmissao) {
+        User usuario = getUsuarioAutenticado();
+
+        SubmitTask submissao = submissaoRepository.findById(idSubmissao)
+                .orElseThrow(() -> new RuntimeException("Submissão não encontrada"));
+
+        boolean isAlunoDaSubmissao = submissao.getAluno() != null
+                && Objects.equals(submissao.getAluno().getIdUsuario(), usuario.getIdUsuario());
+
+        boolean isProfessorDaTurma = submissao.getTarefa() != null
+                && submissao.getTarefa().getTurma() != null
+                && submissao.getTarefa().getTurma().getProfessor() != null
+                && Objects.equals(
+                        submissao.getTarefa().getTurma().getProfessor().getIdUsuario(),
+                        usuario.getIdUsuario()
+                );
+
+        if (!isAlunoDaSubmissao && !isProfessorDaTurma) {
+            throw new RuntimeException("Você não possui acesso a este anexo.");
+        }
+
+        return submissao;
+    }
+
+    public java.nio.file.Path carregarArquivoSubmissao(UUID idSubmissao) {
+        SubmitTask submissao = buscarSubmissaoComPermissao(idSubmissao);
+        return submissionStorageService.load(submissao.getArquivoUrl());
+    }
+
+    private String buildAttachmentUrl(SubmitTask submissao) {
+        return "/api/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo";
     }
 }

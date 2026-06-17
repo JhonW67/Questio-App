@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
 import { styles } from "../../../../styles/Tasks";
 import TaskFilterTabs, { TaskFilter } from "../../../../components/pill/pill";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
@@ -25,6 +26,8 @@ export default function Tasks() {
   const [saving, setSaving] = useState(false);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<StudentTask | null>(null);
   const [resposta, setResposta] = useState("");
+  const [arquivoSelecionado, setArquivoSelecionado] =
+    useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const carregarTarefas = useCallback(async () => {
     try {
@@ -63,18 +66,30 @@ export default function Tasks() {
 
     setTarefaSelecionada(tarefa);
     setResposta(tarefa.resposta ?? "");
+    setArquivoSelecionado(null);
     setModalVisible(true);
+  }
+
+  async function selecionarArquivo() {
+    const result = await DocumentPicker.getDocumentAsync({
+      multiple: false,
+      copyToCacheDirectory: true,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      setArquivoSelecionado(result.assets[0]);
+    }
   }
 
   async function enviarTarefa() {
     if (!tarefaSelecionada) return;
 
-    if (!resposta.trim()) {
+    if (!resposta.trim() && !arquivoSelecionado) {
       Alert.alert("Atenção", "Escreva sua resposta antes de enviar.");
       return;
     }
 
-    if (resposta.trim().length < 10) {
+    if (resposta.trim() && resposta.trim().length < 10) {
       Alert.alert("Atenção", "A resposta precisa ter pelo menos 10 caracteres.");
       return;
     }
@@ -84,11 +99,13 @@ export default function Tasks() {
       const mensagem = await submitStudentTask({
         idTask: tarefaSelecionada.id,
         resposta: resposta.trim(),
+        arquivo: arquivoSelecionado,
       });
 
       setModalVisible(false);
       setResposta("");
       setTarefaSelecionada(null);
+      setArquivoSelecionado(null);
       await carregarTarefas();
       Alert.alert("Sucesso", mensagem);
     } catch (error: any) {
@@ -187,9 +204,16 @@ export default function Tasks() {
                   </Text>
                 </View>
                 {tarefa.concluida ? (
-                  <Text style={styles.metaText}>
-                    Status: {tarefa.statusSubmissao || "Concluido"}
-                  </Text>
+                  <>
+                    <Text style={styles.metaText}>
+                      Status: {tarefa.statusSubmissao || "Concluido"}
+                    </Text>
+                    {tarefa.arquivoNome ? (
+                      <Text style={styles.metaText}>
+                        Anexo: {tarefa.arquivoNome}
+                      </Text>
+                    ) : null}
+                  </>
                 ) : null}
               </View>
             </TouchableOpacity>
@@ -227,6 +251,20 @@ export default function Tasks() {
               value={resposta}
               onChangeText={setResposta}
             />
+
+            <Text style={styles.fieldLabel}>Anexo</Text>
+            <TouchableOpacity
+              style={styles.attachButton}
+              activeOpacity={0.8}
+              onPress={selecionarArquivo}
+            >
+              <Text style={styles.attachButtonText}>
+                {arquivoSelecionado ? "Trocar arquivo" : "Selecionar arquivo"}
+              </Text>
+            </TouchableOpacity>
+            {arquivoSelecionado ? (
+              <Text style={styles.fileName}>{arquivoSelecionado.name}</Text>
+            ) : null}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity

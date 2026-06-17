@@ -12,5 +12,7 @@ public record TaskResponseDTO(
         Integer pontos,
         String resposta,
         String statusSubmissao,
-        LocalDateTime enviadoEm
+        LocalDateTime enviadoEm,
+        String arquivoNome,
+        String arquivoUrl
 ) {}

@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -27,7 +28,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.upload.dir=target/test-uploads")
 @Transactional
 class TaskServiceTest {
 
@@ -95,7 +96,7 @@ class TaskServiceTest {
     }
 
     @Test
-    void submeterTarefa_quandoAlunoDaTurma_enviaRespostaEPersisteSubmissao() {
+    void submeterTarefa_quandoAlunoDaTurma_enviaRespostaEArquivo_persisteSubmissao() {
         User professor = salvarProfessor("professor.submissao");
         User aluno = salvarAluno("aluno.submissao");
         Class turma = salvarTurmaComAluno("Turma Submissao", professor, aluno);
@@ -109,15 +110,25 @@ class TaskServiceTest {
                 .build());
         autenticarComo(aluno);
 
+        MockMultipartFile arquivo = new MockMultipartFile(
+                "arquivo",
+                "atividade.pdf",
+                "application/pdf",
+                "conteudo-do-pdf".getBytes()
+        );
+
         var mensagem = taskService.submeterTarefa(
                 tarefa.getIdTask(),
-                new TaskSubmissionRequestDTO("Minha resposta detalhada da atividade.")
+                new TaskSubmissionRequestDTO("Minha resposta detalhada da atividade."),
+                arquivo
         );
 
         assertThat(mensagem).contains("15 XP");
         var submissao = submitRepository.findByAluno(aluno).getFirst();
         assertThat(submissao.getResposta()).contains("Minha resposta detalhada");
         assertThat(submissao.getTarefa().getIdTask()).isEqualTo(tarefa.getIdTask());
+        assertThat(submissao.getArquivoNome()).isEqualTo("atividade.pdf");
+        assertThat(submissao.getArquivoUrl()).isNotBlank();
     }
 
     private User salvarProfessor(String prefixoEmail) {

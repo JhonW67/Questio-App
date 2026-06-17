@@ -11,18 +11,20 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StreakCard from "../../../../components/Streak/streakCard";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { useAuth } from "../../../../context/AuthContext";
 import { useTarefas } from "../../../../hooks/useTasks";
 import api from "../../../../services/api"; // Usando sua instância padrão do Axios
 import { styles } from "../../../../styles/HomeAluno";
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuth();
 
   // Estado expandido para guardar o objeto completo do usuário que vem do banco
   const [userData, setUserData] = useState({
     streakAtual: 0,
     maiorStreak: 0,
-    ultimoCheckinEm: null,
+    ultimoCheckinEm: null as string | null,
     nivel: 1,
     xpTotal: 0,
   });
@@ -35,11 +37,24 @@ export default function Home() {
     carregarTarefas,
   } = useTarefas();
 
-  // Função automática executada assim que o aluno abre o app
+  const carregarPerfilAluno = async () => {
+    try {
+      const { data } = await api.get("/user/me");
+      setUserData((atual) => ({
+        ...atual,
+        streakAtual: data?.streakAtual ?? atual.streakAtual,
+        maiorStreak: data?.maiorStreak ?? atual.maiorStreak,
+        ultimoCheckinEm: data?.ultimoCheckinEm ?? atual.ultimoCheckinEm,
+        nivel: data?.nivel ?? atual.nivel,
+        xpTotal: data?.xpTotal ?? atual.xpTotal,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar perfil do aluno:", error);
+    }
+  };
+
   const executarCheckinDiario = async () => {
     try {
-      // Bate no endpoint de gamificação usando a estrutura unificada do Axios
-      // NOTA: Se o seu endpoint exigir o ID na URL (ex: /gamification/checkin/${userId}), basta ajustar abaixo
       const response = await api.post("/gamification/checkin");
 
       if (response.data) {
@@ -54,14 +69,12 @@ export default function Home() {
         "Erro na validação automática do streak:",
         error?.response?.data || error,
       );
-      // Erro silencioso no console para não quebrar a usabilidade caso o servidor caia
     }
   };
 
   useEffect(() => {
-    // 1. Carrega as tarefas normais do hook
     carregarTarefas();
-    // 2. Garante o dia do aluno acendendo o fogo da ofensiva por presença
+    carregarPerfilAluno();
     executarCheckinDiario();
   }, []);
 
@@ -82,7 +95,11 @@ export default function Home() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.headerBadge}>Questio</Text>
+            <Image
+              source={require("../../../../../assets/icon_questio.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.headerTitle}>Visao do Estudante</Text>
           </View>
           <NotificationButton style={styles.notification} size={24} color="#7c93b6" />
@@ -96,7 +113,7 @@ export default function Home() {
               resizeMode="contain"
             />
             <View style={styles.brandTextContainer}>
-              <Text style={styles.brandEyebrow}>Study Quest</Text>
+              <Text style={styles.brandEyebrow}>Questio</Text>
               <Text style={styles.brandText}>
                 Acompanhe ofensiva, progresso e tarefas em um unico painel.
               </Text>
@@ -104,8 +121,8 @@ export default function Home() {
           </View>
 
           <StreakCard
-            streak={userData.streakAtual}
-            maiorStreak={userData.maiorStreak}
+            streak={userData.streakAtual || user?.streakAtual || 0}
+            maiorStreak={userData.maiorStreak || user?.maiorStreak || 0}
             checkinHoje={verificarCheckinHoje()}
           />
 
@@ -142,11 +159,7 @@ export default function Home() {
                   key={tarefa.id ?? index}
                   style={styles.tarefaCard}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    if (tarefa.id != null) {
-                      router.push(`../Tasks/${tarefa.id}`);
-                    }
-                  }}
+                  onPress={() => router.push("../Tasks/index")}
                 >
                   <View style={styles.checkbox} />
                   <View style={styles.tarefaContent}>

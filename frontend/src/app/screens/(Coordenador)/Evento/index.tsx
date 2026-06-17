@@ -16,12 +16,16 @@ import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { EntityPicker } from "../../../../components/select/EntityPicker";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { useCursos } from "../../../../hooks/useCursos";
+import { useDisciplinas } from "../../../../hooks/useDisciplinas";
 import { useEventos } from "../../../../hooks/useEventos";
 import { useTurmas } from "../../../../hooks/useTurmas";
-import type { Disciplina, Turma } from "../../../../types/academic";
+import type { Curso, Disciplina, SemestreOption, Turma } from "../../../../types/academic";
+import { SEMESTRE_OPTIONS } from "../../../../types/academic";
 
 export default function CriarEvento() {
   const { width } = useWindowDimensions();
+  const { cursos, loading: loadingCursos } = useCursos();
   const {
     turmas,
     loading: loadingTurmas,
@@ -35,9 +39,15 @@ export default function CriarEvento() {
     createEvento,
   } = useEventos({ mode: "coordenacao" });
 
+  const [cursoSelecionado, setCursoSelecionado] = useState<Curso | null>(null);
+  const [semestreSelecionado, setSemestreSelecionado] = useState<SemestreOption>(
+    SEMESTRE_OPTIONS[0],
+  );
   const [disciplinaSelecionada, setDisciplinaSelecionada] =
     useState<Disciplina | null>(null);
   const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
+  const [showCursoModal, setShowCursoModal] = useState(false);
+  const [showSemestreModal, setShowSemestreModal] = useState(false);
   const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -50,6 +60,11 @@ export default function CriarEvento() {
 
   const isCompact = width < 430;
 
+  const { disciplinas, loading: loadingDisciplinas } = useDisciplinas({
+    idCurso: cursoSelecionado?.idCurso,
+    semestre: semestreSelecionado.value,
+  });
+
   useEffect(() => {
     refreshTurmas();
   }, [refreshTurmas]);
@@ -60,40 +75,21 @@ export default function CriarEvento() {
     }
   }, [error]);
 
-  const disciplinas = useMemo<Disciplina[]>(() => {
-    const unique = new Map<string, Disciplina>();
-
-    turmas.forEach((turma) => {
-      if (!turma.idDisciplina || !turma.nomeDisciplina || !turma.idCurso) {
-        return;
-      }
-
-      if (!unique.has(turma.idDisciplina)) {
-        unique.set(turma.idDisciplina, {
-          idDisciplina: turma.idDisciplina,
-          idCurso: turma.idCurso,
-          nome: turma.nomeDisciplina,
-          semestre: turma.semestre ?? 1,
-          cargaHoraria: null,
-          ativa: true,
-        });
-      }
-    });
-
-    return Array.from(unique.values()).sort((a, b) =>
-      a.nome.localeCompare(b.nome, "pt-BR"),
-    );
-  }, [turmas]);
-
   const turmasDaDisciplina = useMemo(() => {
-    if (!disciplinaSelecionada?.idDisciplina) {
+    if (
+      !cursoSelecionado?.idCurso ||
+      !disciplinaSelecionada?.idDisciplina
+    ) {
       return [];
     }
 
     return turmas.filter(
-      (item) => item.idDisciplina === disciplinaSelecionada.idDisciplina,
+      (item) =>
+        item.idCurso === cursoSelecionado.idCurso &&
+        item.idDisciplina === disciplinaSelecionada.idDisciplina &&
+        item.semestre === semestreSelecionado.value,
     );
-  }, [disciplinaSelecionada, turmas]);
+  }, [cursoSelecionado, disciplinaSelecionada, semestreSelecionado.value, turmas]);
 
   const professorSelecionado = useMemo(() => {
     if (!turmaSelecionada) {
@@ -107,6 +103,11 @@ export default function CriarEvento() {
   }, [turmaSelecionada]);
 
   const handleCreateEvento = async () => {
+    if (!cursoSelecionado) {
+      Alert.alert("Atenção", "Selecione o curso.");
+      return;
+    }
+
     if (!disciplinaSelecionada) {
       Alert.alert("Atenção", "Selecione a disciplina.");
       return;
@@ -174,15 +175,49 @@ export default function CriarEvento() {
 
         <View style={[styles.row, isCompact && styles.rowCompact]}>
           <View style={styles.flexField}>
+            <Text style={styles.label}>Curso</Text>
+            <TouchableOpacity
+              style={styles.pickerFake}
+              activeOpacity={0.8}
+              onPress={() => setShowCursoModal(true)}
+            >
+              <Text style={styles.pickerFakeText}>
+                {cursoSelecionado?.nome ||
+                  (loadingCursos ? "Carregando..." : "Selecione")}
+              </Text>
+              <Feather name="chevron-down" size={16} color="#7C8DB5" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.flexField}>
+            <Text style={styles.label}>Semestre</Text>
+            <TouchableOpacity
+              style={styles.pickerFake}
+              activeOpacity={0.8}
+              onPress={() => setShowSemestreModal(true)}
+            >
+              <Text style={styles.pickerFakeText}>{semestreSelecionado.label}</Text>
+              <Feather name="chevron-down" size={16} color="#7C8DB5" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.row, isCompact && styles.rowCompact]}>
+          <View style={styles.flexField}>
             <Text style={styles.label}>Disciplina</Text>
             <TouchableOpacity
               style={styles.pickerFake}
               activeOpacity={0.8}
               onPress={() => setShowDisciplinaModal(true)}
+              disabled={!cursoSelecionado}
             >
               <Text style={styles.pickerFakeText}>
                 {disciplinaSelecionada?.nome ||
-                  (loadingTurmas ? "Carregando..." : "Selecione")}
+                  (cursoSelecionado
+                    ? loadingDisciplinas
+                      ? "Carregando..."
+                      : "Selecione"
+                    : "Escolha o curso primeiro")}
               </Text>
               <Feather name="chevron-down" size={16} color="#7C8DB5" />
             </TouchableOpacity>
@@ -341,13 +376,51 @@ export default function CriarEvento() {
       </ScrollView>
 
       <EntityPicker
+        visible={showCursoModal}
+        title="Selecionar curso"
+        items={cursos}
+        loading={loadingCursos}
+        selectedKey={cursoSelecionado?.idCurso}
+        searchPlaceholder="Buscar curso"
+        emptyText="Nenhum curso cadastrado."
+        keyExtractor={(item) => item.idCurso}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) =>
+          item.vagas ? `${item.vagas} vagas` : "Curso acadêmico"
+        }
+        onClose={() => setShowCursoModal(false)}
+        onSelect={(item) => {
+          setCursoSelecionado(item);
+          setDisciplinaSelecionada(null);
+          setTurmaSelecionada(null);
+        }}
+      />
+
+      <EntityPicker
+        visible={showSemestreModal}
+        title="Selecionar semestre"
+        items={SEMESTRE_OPTIONS}
+        selectedKey={String(semestreSelecionado.value)}
+        searchPlaceholder="Buscar semestre"
+        emptyText="Nenhum semestre disponível."
+        keyExtractor={(item) => String(item.value)}
+        labelExtractor={(item) => item.label}
+        onClose={() => setShowSemestreModal(false)}
+        onSelect={(item) => {
+          setSemestreSelecionado(item);
+          setDisciplinaSelecionada(null);
+          setTurmaSelecionada(null);
+        }}
+      />
+
+      <EntityPicker
         visible={showDisciplinaModal}
         title="Selecionar disciplina"
         items={disciplinas}
-        loading={loadingTurmas}
+        loading={loadingDisciplinas}
         selectedKey={disciplinaSelecionada?.idDisciplina}
         searchPlaceholder="Buscar disciplina"
-        emptyText="Nenhuma disciplina com turma cadastrada."
+        emptyText="Nenhuma disciplina encontrada para o curso e semestre."
         keyExtractor={(item) => item.idDisciplina}
         labelExtractor={(item) => item.nome}
         subtitleExtractor={(item) => `${item.semestre}º semestre`}

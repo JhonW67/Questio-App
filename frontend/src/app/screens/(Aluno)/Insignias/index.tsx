@@ -1,18 +1,28 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Image , TouchableOpacity } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native";
 import { styles } from "../../../../styles/Insignias";
 import { BADGES, CATEGORIES } from "../../../../data/Insignias";
-import Ionicons from "@expo/vector-icons/build/Ionicons";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { useAuth } from "../../../../context/AuthContext";
 
 export default function Insignias() {
-  const [activeCategory, setActiveCategory] = useState('todas');
+  const { user } = useAuth();
+  const [activeCategory, setActiveCategory] = useState("todas");
 
-  const unlockedCount = BADGES.filter((badge) => badge.unlocked).length;
-  const progressPercent = Math.round((unlockedCount / BADGES.length) * 100);
+  const mappedBadges = useMemo(
+    () =>
+      BADGES.map((badge) => ({
+        ...badge,
+        unlocked: badge.check(user),
+      })),
+    [user],
+  );
 
-  const filteredBadges = BADGES.filter((badge) =>
-    activeCategory === 'todas' ? true : badge.category === activeCategory
+  const unlockedCount = mappedBadges.filter((badge) => badge.unlocked).length;
+  const progressPercent = Math.round((unlockedCount / mappedBadges.length) * 100);
+
+  const filteredBadges = mappedBadges.filter((badge) =>
+    activeCategory === "todas" ? true : badge.category === activeCategory,
   );
 
   return (
@@ -49,7 +59,9 @@ export default function Insignias() {
                 style={[styles.tabButton, active && styles.tabButtonActive]}
                 onPress={() => setActiveCategory(category.key)}
               >
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>{category.label}</Text>
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {category.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -64,6 +76,9 @@ export default function Insignias() {
               </View>
               <Text style={[styles.badgeTitle, !badge.unlocked && styles.badgeTitleLocked]} numberOfLines={1}>
                 {badge.title}
+              </Text>
+              <Text style={styles.progressText} numberOfLines={2}>
+                {badge.description}
               </Text>
             </View>
           ))}

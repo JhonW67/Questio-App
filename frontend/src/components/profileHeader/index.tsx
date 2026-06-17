@@ -12,6 +12,7 @@ interface Props {
 
 export function ProfileHeader({
   nome,
+  curso,
   tipoUsuario,
   nivel,
   totalInsignias = 0,
@@ -31,6 +32,7 @@ export function ProfileHeader({
 
       {/* Nome e email */}
       <Text style={styles.nome}>{nome}</Text>
+      <Text style={styles.email}>{curso}</Text>
 
       {/* Pills */}
       <View style={styles.pills}>

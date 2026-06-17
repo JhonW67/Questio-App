@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { createTask } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { useTurmas } from "./useTurmas";
 
 interface DisciplinaProfessorOption {
@@ -17,16 +18,25 @@ interface CreateProfessorTaskPayload {
 }
 
 export function useProfessorTasks() {
+  const { user } = useAuth();
   const { turmas, loading, error, refresh } = useTurmas();
   const [submitting, setSubmitting] = useState(false);
   const [disciplinaSelecionadaId, setDisciplinaSelecionadaId] = useState<
     string | null
   >(null);
 
+  const turmasDoProfessor = useMemo(
+    () =>
+      turmas.filter((turma) =>
+        user?.idUsuario ? turma.idProfessor === user.idUsuario : false,
+      ),
+    [turmas, user?.idUsuario],
+  );
+
   const disciplinas = useMemo<DisciplinaProfessorOption[]>(() => {
     const unique = new Map<string, DisciplinaProfessorOption>();
 
-    turmas.forEach((turma) => {
+    turmasDoProfessor.forEach((turma) => {
       if (!turma.idDisciplina || !turma.nomeDisciplina) {
         return;
       }
@@ -43,15 +53,17 @@ export function useProfessorTasks() {
     return Array.from(unique.values()).sort((a, b) =>
       a.nome.localeCompare(b.nome, "pt-BR"),
     );
-  }, [turmas]);
+  }, [turmasDoProfessor]);
 
   const turmasDaDisciplina = useMemo(() => {
     if (!disciplinaSelecionadaId) {
       return [];
     }
 
-    return turmas.filter((turma) => turma.idDisciplina === disciplinaSelecionadaId);
-  }, [disciplinaSelecionadaId, turmas]);
+    return turmasDoProfessor.filter(
+      (turma) => turma.idDisciplina === disciplinaSelecionadaId,
+    );
+  }, [disciplinaSelecionadaId, turmasDoProfessor]);
 
   const setDisciplinaSelecionada = useCallback((idDisciplina: string | null) => {
     setDisciplinaSelecionadaId(idDisciplina);
@@ -67,7 +79,7 @@ export function useProfessorTasks() {
   }, []);
 
   return {
-    turmas,
+    turmas: turmasDoProfessor,
     disciplinas,
     turmasDaDisciplina,
     disciplinaSelecionadaId,

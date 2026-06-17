@@ -28,39 +28,32 @@ export default function Login() {
   const [loadingMessage, setLoadingMessage] = useState("");
 
   async function handleLogin() {
-    if (!email || !senha) return;
+    if (!email || !senha || loading) return;
 
     setLoadingMessage("Carregando...");
     setLoading(true);
 
-    setTimeout(async () => {
-      try {
-        const usuarioLogado = await login(email, senha);
+    try {
+      const usuarioLogado = await login(email, senha);
+      const tipo = usuarioLogado.tipoUsuario;
 
-        setLoadingMessage("Logado com sucesso!");
-
-        const tipo = usuarioLogado.tipoUsuario;
-
-        setTimeout(() => {
-          if (tipo === "Aluno") {
-            router.replace("/screens/(Aluno)/Home");
-          } else if (tipo === "Professor") {
-            router.replace("/screens/(Professor)/Home");
-          } else if (tipo === "Coordenacao") {
-            router.replace("/screens/(Coordenador)/Home");
-          } else {
-            Alert.alert("Erro", "Tipo de usuário inválido.");
-            setLoading(false);
-          }
-        }, 800);
-      } catch (error: any) {
-        Alert.alert(
-          "Erro no login",
-          error.message || "Verifique suas credenciais.",
-        );
+      if (tipo === "Aluno") {
+        router.replace("/screens/(Aluno)/Home");
+      } else if (tipo === "Professor") {
+        router.replace("/screens/(Professor)/Home");
+      } else if (tipo === "Coordenacao") {
+        router.replace("/screens/(Coordenador)/Home");
+      } else {
+        Alert.alert("Erro", "Tipo de usuário inválido.");
         setLoading(false);
       }
-    }, 2000);
+    } catch (error: any) {
+      Alert.alert(
+        "Erro no login",
+        error.message || "Verifique suas credenciais.",
+      );
+      setLoading(false);
+    }
   }
 
   return (

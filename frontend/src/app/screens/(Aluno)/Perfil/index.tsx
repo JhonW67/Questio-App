@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,18 +12,26 @@ import { useAuth } from "../../../../context/AuthContext";
 import { ProfileHeader } from "../../../../components/profileHeader";
 import { StatsGrid } from "../../../../components/cardProfile";
 import { BadgeList } from "../../../../components/badgeProfile";
-import { ALL_BADGES, getStats } from "../../../../data/Perfil";
+import { getStats } from "../../../../data/Perfil";
+import { BADGES } from "../../../../data/Insignias";
 import { styles } from "../../../../styles/Perfil";
-import { Ionicons } from "@expo/vector-icons";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 export default function Perfil() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
-
-  console.log("USER:", JSON.stringify(user));
-
   const stats = getStats(user);
+  const badges = useMemo(
+    () =>
+      BADGES.map((badge) => ({
+        label: badge.title,
+        icon: badge.icon,
+        description: badge.description,
+        desbloqueada: badge.check(user),
+      })),
+    [user],
+  );
+  const totalDesbloqueadas = badges.filter((badge) => badge.desbloqueada).length;
 
   async function handleLogout() {
     await logout();
@@ -57,14 +65,18 @@ export default function Perfil() {
       >
         <ProfileHeader
           nome={user?.nome || "—"}
-          curso={user?.email || "—"}
+          curso={user?.curso || user?.email || "—"}
           tipoUsuario={user?.tipoUsuario || "—"}
-          nivel={1}
+          nivel={user?.nivel ?? 1}
+          totalInsignias={totalDesbloqueadas}
         />
 
         <StatsGrid stats={stats} />
 
-        <BadgeList badges={ALL_BADGES} />
+        <BadgeList
+          badges={badges}
+          totalDesbloqueadas={totalDesbloqueadas}
+        />
 
         <TouchableOpacity
           style={styles.logoutButton}

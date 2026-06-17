@@ -1,86 +1,87 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Image,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { styles } from "../../../../styles/HomeCoordenacao";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import api from "../../../../services/api";
 
-interface CursoDTO {
-  id: string;
-  nome: string;
-  alunos: number;
-  professores: number;
-  ativo: boolean;
+interface DashboardResumoDTO {
+  totalAlunos: number;
+  totalProfessores: number;
+  totalCursosAtivos: number;
 }
 
-interface UsuarioDTO {
-  tipoUsuario: string;
-  id: string;
-  nome: string;
+interface CursoDashboardDTO {
+  idCurso: string;
+  nomeCurso: string;
+  quantidadeAlunos: number;
 }
 
 export default function Home() {
-  const [usuarios, setUsuarios] = useState<UsuarioDTO[]>([]);
-  const [cursos, setCursos] = useState<CursoDTO[]>([
-    {
-      id: "1",
-      nome: "Engenharia de Software",
-      alunos: 28,
-      professores: 3,
-      ativo: true,
-    },
-    {
-      id: "2",
-      nome: "Banco de Dados",
-      alunos: 25,
-      professores: 2,
-      ativo: true,
-    },
-    {
-      id: "3",
-      nome: "Redes de Computadores",
-      alunos: 30,
-      professores: 2,
-      ativo: true,
-    },
-  ]);
+  const { width } = useWindowDimensions();
+  const [carregando, setCarregando] = useState(true);
+  const [resumo, setResumo] = useState<DashboardResumoDTO>({
+    totalAlunos: 0,
+    totalProfessores: 0,
+    totalCursosAtivos: 0,
+  });
+  const [cursos, setCursos] = useState<CursoDashboardDTO[]>([]);
 
-  useEffect(() => {
-    async function carregarUsuarios() {
-      try {
-        const dadosMockados: UsuarioDTO[] = [
-          { id: "1", nome: "Carlos Silva", tipoUsuario: "PROFESSOR" },
-          { id: "2", nome: "Ana Souza", tipoUsuario: "PROFESSOR" },
-          { id: "3", nome: "Roberto Costa", tipoUsuario: "ALUNO" },
-          { id: "4", nome: "Mariana Dias", tipoUsuario: "PROFESSOR" },
-        ];
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
 
-        setUsuarios(dadosMockados);
-      } catch (error) {
-        console.error("Erro ao buscar usuários do sistema:", error);
+      async function carregarDashboard() {
+        try {
+          setCarregando(true);
+          const [resumoRes, cursosRes] = await Promise.all([
+            api.get("/coordenacao/dashboard/resumo"),
+            api.get("/coordenacao/dashboard/cursos-alunos"),
+          ]);
+
+          if (!ativo) return;
+          setResumo(resumoRes.data);
+          setCursos(Array.isArray(cursosRes.data) ? cursosRes.data : []);
+        } catch (error) {
+          console.error("Erro ao buscar dashboard da coordenação:", error);
+          if (!ativo) return;
+          setResumo({
+            totalAlunos: 0,
+            totalProfessores: 0,
+            totalCursosAtivos: 0,
+          });
+          setCursos([]);
+        } finally {
+          if (ativo) {
+            setCarregando(false);
+          }
+        }
       }
-    }
 
-    carregarUsuarios();
-  }, []);
+      carregarDashboard();
 
-  const totalProfessores = usuarios.filter(
-    (u) => u.tipoUsuario === "PROFESSOR",
-  ).length;
+      return () => {
+        ativo = false;
+      };
+    }, []),
+  );
+
+  const isCompact = width < 420;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050E1D" />
 
-      {/* --- CABEÇALHO --- */}
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
@@ -91,22 +92,21 @@ export default function Home() {
         <NotificationButton style={styles.notification} />
       </View>
 
-      {/* --- CONTEÚDO SCROLLÁVEL --- */}
       <ScrollView
         style={styles.contentArea}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 130 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* --- CARDS INFORMATIVOS --- */}
         <View style={styles.gridInformativo}>
           <View
             style={[
               styles.cardInfo,
               { borderColor: "rgba(22, 199, 231, 0.2)" },
+              isCompact && { width: "100%" },
             ]}
           >
             <Feather name="book-open" size={20} color="#16C7E7" />
-            <Text style={styles.cardValor}>4</Text>
+            <Text style={styles.cardValor}>{resumo.totalCursosAtivos}</Text>
             <Text style={styles.cardLabel}>Cursos Ativos</Text>
           </View>
 
@@ -114,10 +114,11 @@ export default function Home() {
             style={[
               styles.cardInfo,
               { borderColor: "rgba(46, 213, 115, 0.2)" },
+              isCompact && { width: "100%" },
             ]}
           >
             <Feather name="users" size={20} color="#2ed573" />
-            <Text style={styles.cardValor}>110</Text>
+            <Text style={styles.cardValor}>{resumo.totalAlunos}</Text>
             <Text style={styles.cardLabel}>Total de Alunos</Text>
           </View>
 
@@ -125,10 +126,11 @@ export default function Home() {
             style={[
               styles.cardInfo,
               { borderColor: "rgba(108, 92, 231, 0.2)" },
+              isCompact && { width: "100%" },
             ]}
           >
-            <Feather name="calendar" size={20} color="#6c5ce7" />
-            <Text style={styles.cardValor}>{totalProfessores}</Text>
+            <Feather name="user-check" size={20} color="#6c5ce7" />
+            <Text style={styles.cardValor}>{resumo.totalProfessores}</Text>
             <Text style={styles.cardLabel}>Professores</Text>
           </View>
 
@@ -136,42 +138,55 @@ export default function Home() {
             style={[
               styles.cardInfo,
               { borderColor: "rgba(255, 159, 67, 0.2)" },
+              isCompact && { width: "100%" },
             ]}
           >
-            <Feather name="lock" size={20} color="#ff9f43" />
-            <Text style={styles.cardValor}>156</Text>
-            <Text style={styles.cardLabel}>Acesso EAD</Text>
+            <Feather name="calendar" size={20} color="#ff9f43" />
+            <Text style={styles.cardValor}>{cursos.length}</Text>
+            <Text style={styles.cardLabel}>Cursos no painel</Text>
           </View>
         </View>
 
-        {/* --- SEÇÃO DE AÇÕES --- */}
         <Text style={styles.titleAcoes}>Ações</Text>
-        <View style={styles.gridAcoes}>
+        <View
+          style={[
+            styles.gridAcoes,
+            isCompact && { flexDirection: "column", gap: 12 },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.btnAcao, { borderColor: "rgba(46, 213, 115, 0.2)" }]}
             activeOpacity={0.7}
-            onPress={() => router.push("/Grade")} // CORRIGIDO: Nome direto da Tab
+            onPress={() => router.push("/screens/(Coordenador)/Grade")}
           >
             <Feather name="calendar" size={20} color="#2ed573" />
             <Text style={styles.labelAcao}>Montar Grade</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.btnAcao, { borderColor: "rgba(22, 199, 231, 0.2)" }]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/screens/(Coordenador)/Cursos")}
+          >
+            <Feather name="book-open" size={20} color="#16C7E7" />
+            <Text style={styles.labelAcao}>Gerir Cursos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.btnAcao, { borderColor: "rgba(108, 92, 231, 0.2)" }]}
             activeOpacity={0.7}
-            onPress={() => router.push("/EAD")} // Ajuste se a rota for diferente nas abas
+            onPress={() => router.push("/screens/(Coordenador)/Evento")}
           >
-            <Feather name="lock" size={20} color="#6c5ce7" />
-            <Text style={styles.labelAcao}>Liberar EAD</Text>
+            <Feather name="bell" size={20} color="#6c5ce7" />
+            <Text style={styles.labelAcao}>Emitir Eventos</Text>
           </TouchableOpacity>
         </View>
 
-        {/* --- SEÇÃO CURSOS ATIVOS --- */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Cursos Ativos</Text>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => router.push("/Cursos")} // CORRIGIDO: Nome direto da Tab de Cursos
+            onPress={() => router.push("/screens/(Coordenador)/Cursos")}
           >
             <Text style={styles.verTodosText}>
               Ver todos <Feather name="chevron-right" size={14} />
@@ -179,22 +194,29 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {cursos.map((curso) => (
-          <View key={curso.id} style={styles.cursoCard}>
-            <View style={styles.cursoInfoContainer}>
-              <Text style={styles.cursoNome}>{curso.nome}</Text>
-              <Text style={styles.cursoDetalhes}>
-                {curso.alunos} alunos • {curso.professores} professores
-              </Text>
-            </View>
-
-            {curso.ativo && (
+        {carregando ? (
+          <ActivityIndicator
+            size="small"
+            color="#16C7E7"
+            style={{ marginTop: 12 }}
+          />
+        ) : cursos.length === 0 ? (
+          <Text style={styles.cursoDetalhes}>Nenhum curso cadastrado.</Text>
+        ) : (
+          cursos.map((curso) => (
+            <View key={curso.idCurso} style={styles.cursoCard}>
+              <View style={styles.cursoInfoContainer}>
+                <Text style={styles.cursoNome}>{curso.nomeCurso}</Text>
+                <Text style={styles.cursoDetalhes}>
+                  {curso.quantidadeAlunos} aluno(s) vinculados
+                </Text>
+              </View>
               <View style={styles.badgeAtivo}>
                 <Text style={styles.badgeTextActive}>Ativo</Text>
               </View>
-            )}
-          </View>
-        ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     </View>
   );

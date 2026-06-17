@@ -123,7 +123,9 @@ export default function Rankings() {
   }
   const { top10, usuarioAtual } = ranking;
 
-  const alunos = top10.filter(() => user?.tipoUsuario === "Aluno");
+  const alunos = top10
+    .filter((item) => item.tipoUsuario === "Aluno" || !item.tipoUsuario)
+    .sort((a, b) => b.xpTotal - a.xpTotal);
 
   return (
     <SafeAreaView style={styles.container}>

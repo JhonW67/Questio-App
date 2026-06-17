@@ -15,6 +15,13 @@ export interface UsuarioLogado {
   email: string;
   token: string;
   tipoUsuario: "Aluno" | "Professor" | "Coordenacao";
+  curso?: string | null;
+  xpTotal?: number;
+  nivel?: number;
+  streakAtual?: number;
+  maiorStreak?: number;
+  ultimoCheckinEm?: string | null;
+  acessoBloqueado?: boolean;
 }
 
 export interface AuthContextData {
@@ -122,6 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         | "Aluno"
         | "Professor"
         | "Coordenacao",
+      curso: profileData?.curso ?? null,
+      xpTotal: profileData?.xpTotal ?? 0,
+      nivel: profileData?.nivel ?? 1,
+      streakAtual: profileData?.streakAtual ?? 0,
+      maiorStreak: profileData?.maiorStreak ?? 0,
+      ultimoCheckinEm: profileData?.ultimoCheckinEm ?? null,
+      acessoBloqueado: profileData?.acessoBloqueado ?? false,
     };
 
     setUser(dadosUsuario);

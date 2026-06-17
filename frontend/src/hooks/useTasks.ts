@@ -1,25 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import api from "../services/api";
-
-export interface Tarefa {
-  id: string;
-  titulo: string;
-  objetivo: string;
-  dataEntrega: string;
-  concluida: boolean;
-  pontos?: number;
-  categoria?: string;
-}
+import { completeStudentTask, getStudentTasks } from "../services/api";
+import type { StudentTask } from "../types/academic";
 
 export function useTarefas() {
-  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [tarefas, setTarefas] = useState<StudentTask[]>([]);
   const [loading, setLoading] = useState(true);
 
   const carregarTarefas = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/tarefas");
-      setTarefas(data);
+      setTarefas(await getStudentTasks());
     } catch (error: any) {
       console.log(error?.response?.data || error);
     } finally {
@@ -29,11 +19,11 @@ export function useTarefas() {
 
   const concluirTarefa = useCallback(async (id: string) => {
     try {
-      await api.patch(`/tarefas/${id}/concluir`);
+      await completeStudentTask(id);
       setTarefas((prev) =>
         prev.map((tarefa) =>
-          tarefa.id === id ? { ...tarefa, concluida: !tarefa.concluida } : tarefa
-        )
+          tarefa.id === id ? { ...tarefa, concluida: true } : tarefa,
+        ),
       );
     } catch (error: any) {
       console.log(error?.response?.data || error);

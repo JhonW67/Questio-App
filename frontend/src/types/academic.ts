@@ -90,6 +90,16 @@ export interface CreateTaskPayload {
   idTurma: string;
 }
 
+export interface StudentTask {
+  id: string;
+  titulo: string;
+  objetivo: string;
+  dataEntrega: string;
+  concluida: boolean;
+  pontos: number | null;
+  categoria?: string | null;
+}
+
 export interface AcademicEvent {
   id: string;
   idProfessor: string | null;
@@ -263,5 +273,23 @@ export function normalizeAcademicEvent(raw: any): AcademicEvent {
         ? tipo
         : "comunicado",
     lido: Boolean(raw?.lido ?? false),
+  };
+}
+
+export function normalizeStudentTask(raw: any): StudentTask {
+  return {
+    id: String(raw?.id ?? raw?.idTask ?? ""),
+    titulo: String(raw?.titulo ?? ""),
+    objetivo: String(raw?.objetivo ?? raw?.descricao ?? ""),
+    dataEntrega: String(raw?.dataEntrega ?? raw?.prazo ?? ""),
+    concluida: Boolean(raw?.concluida ?? false),
+    pontos:
+      raw?.pontos === null || raw?.pontos === undefined
+        ? null
+        : Number(raw.pontos),
+    categoria:
+      raw?.categoria === null || raw?.categoria === undefined
+        ? null
+        : String(raw.categoria),
   };
 }

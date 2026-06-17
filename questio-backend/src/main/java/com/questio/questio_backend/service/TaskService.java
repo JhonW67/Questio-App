@@ -46,6 +46,10 @@ public class TaskService {
         Class turma = turmaRepository.findById(dto.idClass())
                 .orElseThrow(() -> new RuntimeException("Turma não encontrada"));
 
+        if (turma.getProfessor() == null || !Objects.equals(turma.getProfessor().getIdUsuario(), professor.getIdUsuario())) {
+            throw new RuntimeException("Você só pode criar tarefas para turmas vinculadas ao seu perfil.");
+        }
+
         Task novaTarefa = Task.builder()
                 .titulo(dto.titulo())
                 .descricao(dto.descricao())

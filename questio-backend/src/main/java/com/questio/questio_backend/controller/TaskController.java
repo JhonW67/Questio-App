@@ -22,7 +22,7 @@ public class TaskController {
     private final TaskService tarefaService;
 
     @PostMapping("/criar")
-    @PreAuthorize("hasAnyRole('PROFESSOR', 'COORDENACAO')")
+    @PreAuthorize("hasRole('PROFESSOR')")
     public ResponseEntity<TaskResponseDTO> criar(@RequestBody @Valid TaskRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tarefaService.criarTarefa(dto));
     }

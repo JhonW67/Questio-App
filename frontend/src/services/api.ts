@@ -12,6 +12,7 @@ import type {
   MatriculaPayload,
   Professor,
   RegisterPayload,
+  StudentTask,
   Turma,
   TurmaPayload,
 } from "../types/academic";
@@ -21,6 +22,7 @@ import {
   normalizeCurso,
   normalizeDisciplina,
   normalizeProfessor,
+  normalizeStudentTask,
   normalizeTurma,
 } from "../types/academic";
 
@@ -128,6 +130,16 @@ export async function createTask(payload: CreateTaskPayload) {
   });
 
   return data;
+}
+
+export async function getStudentTasks(): Promise<StudentTask[]> {
+  const { data } = await api.get("/tarefas");
+  return Array.isArray(data) ? data.map(normalizeStudentTask) : [];
+}
+
+export async function completeStudentTask(idTask: string): Promise<string> {
+  const { data } = await api.patch(`/tarefas/${idTask}/concluir`);
+  return String(data?.mensagem ?? "Tarefa concluida com sucesso.");
 }
 
 export async function getAcademicEvents(): Promise<AcademicEvent[]> {

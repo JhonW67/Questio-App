@@ -1,83 +1,105 @@
 import MaskedView from "@react-native-masked-view/masked-view";
+import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { API_URL } from "../../../../services/api";
-import { Alert } from "react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  Platform,
+  useWindowDimensions,
 } from "react-native";
-
+import { ScreenLoader } from "../../../../components/Loading/loader";
 import { Button } from "../../../../components/button/button";
 import { Input } from "../../../../components/input/input";
 import { RadioSelect } from "../../../../components/radioSelect/radioSelect";
+import { EntityPicker } from "../../../../components/select/EntityPicker";
+import { useCursos } from "../../../../hooks/useCursos";
+import { registerUser } from "../../../../services/api";
 import { styles } from "../../../../styles/Register";
-import { ScreenLoader } from "../../../../components/Loading/loader";
+import type { Curso } from "../../../../types/academic";
+
+type TipoCadastro = "Aluno" | "Professor" | "Coordenacao";
+
+const TIPOS_API: Record<TipoCadastro, "ALUNO" | "PROFESSOR" | "COORDENACAO"> = {
+  Aluno: "ALUNO",
+  Professor: "PROFESSOR",
+  Coordenacao: "COORDENACAO",
+};
 
 export default function Register() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const { cursos, loading: loadingCursos, error: cursosError, refresh } =
+    useCursos();
+
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [curso, setCurso] = useState("");
-  const [tipo, setTipo] = useState("Aluno");
+  const [tipo, setTipo] = useState<TipoCadastro>("Aluno");
   const [senha, setSenha] = useState("");
+  const [cursoSelecionado, setCursoSelecionado] = useState<Curso | null>(null);
+  const [showCursoModal, setShowCursoModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
 
+  const isCompact = width < 380;
+  const isCursoObrigatorio = tipo === "Aluno";
+  const formWidth = useMemo(() => Math.min(width - 32, 480), [width]);
+
   async function handleRegister() {
     if (loading) return;
-    if (!nome || !email || !curso || !senha) return;
-    if (senha.length < 8) {
-      Alert.alert("Erro", "A senha deve ter pelo menos 8 caracteres");
+
+    if (!nome.trim() || !email.trim() || !senha.trim()) {
+      Alert.alert("Atenção", "Preencha nome, e-mail e senha.");
       return;
     }
 
-    setLoadingMessage("Enviando dados de cadastro...");
-    setLoading(true);
+    if (isCursoObrigatorio && !cursoSelecionado) {
+      Alert.alert("Atenção", "Selecione um curso para o cadastro do aluno.");
+      return;
+    }
 
-    setTimeout(async () => {
-      try {
-        console.log("Tentando conectar em:", `${API_URL}/auth/register`);
+    if (senha.length < 8) {
+      Alert.alert("Erro", "A senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
 
-        const response = await fetch(`${API_URL}/auth/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nome,
-            email,
-            curso,
-            tipoUsuario: tipo.toUpperCase(),
-            senha,
-          }),
-        });
+    try {
+      setLoadingMessage("Criando conta...");
+      setLoading(true);
 
-        console.log("Status:", response.status);
-        const text = await response.text();
-        console.log("Body da resposta:", text);
+      await registerUser({
+        nome: nome.trim(),
+        email: email.trim().toLowerCase(),
+        senha,
+        curso: cursoSelecionado?.nome ?? "",
+        tipoUsuario: TIPOS_API[tipo],
+      });
 
-        if (!response.ok) {
-          throw new Error(`Erro ${response.status}: ${text}`);
-        }
-
-        setLoadingMessage("Conta criada com sucesso!");
-
-        setTimeout(() => {
-          router.replace("/screens/(Authenticator)/Login");
-        }, 800);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Erro desconhecido";
-        console.error("Erro completo:", message);
-        Alert.alert("Erro", message);
-        setLoading(false);
-      }
-    }, 1500);
+      setLoadingMessage("Conta criada com sucesso!");
+      Alert.alert(
+        "Sucesso",
+        "Cadastro realizado com sucesso. Verifique seu e-mail antes do primeiro login, se a conta exigir validação.",
+        [
+          {
+            text: "Ir para login",
+            onPress: () => router.replace("/screens/(Authenticator)/Login"),
+          },
+        ],
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.response?.data?.message || "Não foi possível concluir o cadastro.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -89,14 +111,20 @@ export default function Register() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { alignItems: "center", paddingHorizontal: isCompact ? 12 : 16 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { width: "100%", alignItems: "center" }]}>
           <View style={styles.header}>
             <Image
               source={require("../../../../../assets/icon_questio.png")}
-              style={styles.logo}
+              style={[
+                styles.logo,
+                isCompact && { width: 140, height: 140, marginBottom: -6 },
+              ]}
               resizeMode="contain"
             />
 
@@ -113,7 +141,7 @@ export default function Register() {
             </MaskedView>
           </View>
 
-          <View style={styles.form}>
+          <View style={[styles.form, { maxWidth: formWidth }]}>
             <Input
               label="Nome Completo"
               iconName="user"
@@ -134,19 +162,46 @@ export default function Register() {
               editable={!loading}
             />
 
-            <Input
-              label="Curso"
-              iconName="book"
-              placeholder="Digite o nome do seu curso"
-              value={curso}
-              onChangeText={setCurso}
-              editable={!loading}
-            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowCursoModal(true)}
+              disabled={loading}
+            >
+              <View pointerEvents="none">
+                <Input
+                  label={isCursoObrigatorio ? "Curso" : "Curso (opcional)"}
+                  iconName="book"
+                  placeholder={
+                    loadingCursos ? "Carregando cursos..." : "Selecione um curso"
+                  }
+                  value={cursoSelecionado?.nome ?? ""}
+                  editable={false}
+                  rightElement={
+                    loadingCursos ? (
+                      <Feather name="loader" size={18} color="#5D708A" />
+                    ) : (
+                      <Feather name="chevron-down" size={18} color="#5D708A" />
+                    )
+                  }
+                />
+              </View>
+            </TouchableOpacity>
+
+            {cursosError ? (
+              <TouchableOpacity
+                style={{ marginTop: -8, marginBottom: 12 }}
+                onPress={refresh}
+              >
+                <Text style={styles.linkTextAccent}>
+                  Não foi possível carregar os cursos. Toque para tentar novamente.
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <RadioSelect
               options={["Aluno", "Professor", "Coordenacao"]}
               selected={tipo}
-              onChange={setTipo}
+              onChange={(value) => setTipo(value as TipoCadastro)}
             />
 
             <Input
@@ -163,7 +218,13 @@ export default function Register() {
               <Button
                 title="Cadastrar"
                 onPress={handleRegister}
-                disabled={loading || !nome || !email || !curso || !senha}
+                disabled={
+                  loading ||
+                  !nome.trim() ||
+                  !email.trim() ||
+                  !senha.trim() ||
+                  (isCursoObrigatorio && !cursoSelecionado)
+                }
               />
             </View>
 
@@ -180,6 +241,23 @@ export default function Register() {
           </View>
         </View>
       </ScrollView>
+
+      <EntityPicker
+        visible={showCursoModal}
+        title="Selecionar curso"
+        items={cursos}
+        loading={loadingCursos}
+        selectedKey={cursoSelecionado?.idCurso}
+        searchPlaceholder="Buscar curso"
+        emptyText="Nenhum curso cadastrado."
+        keyExtractor={(item) => item.idCurso}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) =>
+          item.cargaHoraria ? `${item.cargaHoraria}h` : "Curso sem carga horária"
+        }
+        onClose={() => setShowCursoModal(false)}
+        onSelect={(item) => setCursoSelecionado(item)}
+      />
     </KeyboardAvoidingView>
   );
 }

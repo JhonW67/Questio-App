@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import StreakCard from "../../../../components/Streak/streakCard";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 import { useTarefas } from "../../../../hooks/useTasks";
 import api from "../../../../services/api"; // Usando sua instância padrão do Axios
 import { styles } from "../../../../styles/HomeAluno";
@@ -84,12 +85,7 @@ export default function Home() {
             <Text style={styles.headerBadge}>Questio</Text>
             <Text style={styles.headerTitle}>Visao do Estudante</Text>
           </View>
-          <TouchableOpacity style={styles.notification}>
-            <Ionicons name="notifications-outline" size={24} color="#7c93b6" />
-            <View style={styles.notificationBadge}>
-              <Text style={styles.badgeText}>2</Text>
-            </View>
-          </TouchableOpacity>
+          <NotificationButton style={styles.notification} size={24} color="#7c93b6" />
         </View>
 
         <View style={styles.content}>

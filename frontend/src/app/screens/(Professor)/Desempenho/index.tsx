@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { styles } from "../../../../styles/Desempenho";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 import { useAuth } from "../../../../context/AuthContext";
 import api from "../../../../services/api";
 
@@ -275,12 +276,7 @@ export default function Desempenho() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       {turmas.length > 0 && (

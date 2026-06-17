@@ -1,176 +1,160 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
   Alert,
   Image,
   ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
-import api, { API_URL } from "../../../../services/api";
-import { useAuth } from "../../../../context/AuthContext";
-
-interface Professor {
-  idUsuario: string;
-  nome: string;
-}
-
-interface Aluno {
-  idUsuario: string;
-  nome: string;
-}
-
-interface Atribuicao {
-  id: string;
-  disciplina: string;
-  idProfessor: string;
-  nomeProfessor: string;
-  idAluno?: string;
-  nomeAluno?: string;
-  turma: string;
-  semestre: string;
-  tituloEvento?: string;
-  descricaoEvento?: string;
-  dataEvento?: string;
-  tipo: "reuniao" | "aviso" | "comunicado" | "importante"; // Alinhado com o Professor
-  lido: boolean;
-}
+import { Feather } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { EntityPicker } from "../../../../components/select/EntityPicker";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { useEventos } from "../../../../hooks/useEventos";
+import { useTurmas } from "../../../../hooks/useTurmas";
+import type { Disciplina, Turma } from "../../../../types/academic";
 
 export default function CriarEvento() {
-  const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const {
+    turmas,
+    loading: loadingTurmas,
+    refresh: refreshTurmas,
+  } = useTurmas();
+  const {
+    eventos,
+    loading,
+    saving,
+    error,
+    createEvento,
+  } = useEventos({ mode: "coordenacao" });
 
-  const [disciplina, setDisciplina] = useState("Banco de Dados");
-  const [turma, setTurma] = useState("2B");
-  const [dataDe, setDataDe] = useState("20 Mar 2026");
-
-  const [professores, setProfessores] = useState<Professor[]>([]);
-  const [professorSelecionado, setProfessorSelecionado] =
-    useState<Professor | null>(null);
-  const [carregandoProfessores, setCarregandoProfessores] = useState(true);
-
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
-  const [alunoSelecionado, setAlunoSelecionado] = useState<Aluno | null>(null);
-  const [carregandoAlunos, setCarregandoAlunos] = useState(true);
-
-  const [criarEvento, setCriarEvento] = useState(true);
-  const [tituloEvento, setTituloEvento] = useState(
-    "Início da Disciplina: Banco de Dados",
-  );
-  const [descricaoEvento, setDescricaoEvento] = useState(
-    "Bem-vindo ao curso de Banco de Dados. A primeira aula será sobre modelagem relacional.",
-  );
-
-  // Novo estado para definir o tipo do evento diretamente da coordenação
+  const [disciplinaSelecionada, setDisciplinaSelecionada] =
+    useState<Disciplina | null>(null);
+  const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
+  const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
+  const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tituloEvento, setTituloEvento] = useState("");
+  const [descricaoEvento, setDescricaoEvento] = useState("");
+  const [dataEvento, setDataEvento] = useState(new Date());
   const [tipoEvento, setTipoEvento] = useState<
     "reuniao" | "aviso" | "comunicado" | "importante"
-  >("reuniao");
+  >("comunicado");
 
-  const [atribuiu, setAtribuiu] = useState<Atribuicao[]>([]);
+  const isCompact = width < 430;
 
   useEffect(() => {
-    async function carregarDadosIniciais() {
-      if (user && user.tipoUsuario === "Professor") {
-        setProfessorSelecionado({ idUsuario: user.idUsuario, nome: user.nome });
-        setCarregandoProfessores(false);
-      } else {
-        try {
-          const { data } = await api.get<Professor[]>("/user/professores");
-          setProfessores(data ?? []);
-          if (data?.length) {
-            setProfessorSelecionado(data[0]);
-          }
-        } catch (error) {
-          console.log("Erro ao carregar professores:", error);
-          setProfessores([]);
-          setProfessorSelecionado(null);
-        } finally {
-          setCarregandoProfessores(false);
-        }
+    refreshTurmas();
+  }, [refreshTurmas]);
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert("Erro", error);
+    }
+  }, [error]);
+
+  const disciplinas = useMemo<Disciplina[]>(() => {
+    const unique = new Map<string, Disciplina>();
+
+    turmas.forEach((turma) => {
+      if (!turma.idDisciplina || !turma.nomeDisciplina || !turma.idCurso) {
+        return;
       }
 
-      try {
-        const { data } = await api.get<Aluno[]>("/user/alunos");
-        setAlunos(data ?? []);
-        if (data?.length) {
-          setAlunoSelecionado(data[0]);
-        }
-      } catch (error) {
-        console.log("Erro ao carregar alunos:", error);
-        setAlunos([]);
-        setAlunoSelecionado(null);
-      } finally {
-        setCarregandoAlunos(false);
+      if (!unique.has(turma.idDisciplina)) {
+        unique.set(turma.idDisciplina, {
+          idDisciplina: turma.idDisciplina,
+          idCurso: turma.idCurso,
+          nome: turma.nomeDisciplina,
+          semestre: turma.semestre ?? 1,
+          cargaHoraria: null,
+          ativa: true,
+        });
       }
+    });
+
+    return Array.from(unique.values()).sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR"),
+    );
+  }, [turmas]);
+
+  const turmasDaDisciplina = useMemo(() => {
+    if (!disciplinaSelecionada?.idDisciplina) {
+      return [];
     }
 
-    carregarDadosIniciais();
-  }, [user]);
+    return turmas.filter(
+      (item) => item.idDisciplina === disciplinaSelecionada.idDisciplina,
+    );
+  }, [disciplinaSelecionada, turmas]);
 
-  const handleAtribuirEEvento = async () => {
-    if (!professorSelecionado) {
-      Alert.alert("Atenção", "Nenhum professor definido para esta atribuição.");
+  const professorSelecionado = useMemo(() => {
+    if (!turmaSelecionada) {
+      return null;
+    }
+
+    return {
+      idProfessor: turmaSelecionada.idProfessor,
+      nomeProfessor: turmaSelecionada.nomeProfessor,
+    };
+  }, [turmaSelecionada]);
+
+  const handleCreateEvento = async () => {
+    if (!disciplinaSelecionada) {
+      Alert.alert("Atenção", "Selecione a disciplina.");
       return;
     }
 
-    if (criarEvento && (!tituloEvento.trim() || !descricaoEvento.trim())) {
+    if (!turmaSelecionada) {
+      Alert.alert("Atenção", "Selecione a turma.");
+      return;
+    }
+
+    if (!professorSelecionado?.idProfessor) {
+      Alert.alert("Atenção", "A turma selecionada está sem professor vinculado.");
+      return;
+    }
+
+    if (!tituloEvento.trim() || !descricaoEvento.trim()) {
       Alert.alert("Atenção", "Preencha o título e a descrição do evento.");
       return;
     }
 
-    const novaAtribuicao: Atribuicao = {
-      id: Date.now().toString(),
-      disciplina,
-      idProfessor: professorSelecionado.idUsuario,
-      nomeProfessor: professorSelecionado.nome,
-      idAluno: alunoSelecionado?.idUsuario,
-      nomeAluno: alunoSelecionado?.nome,
-      turma,
-      semestre: "1º Semestre",
-      tituloEvento: criarEvento ? tituloEvento : undefined,
-      descricaoEvento: criarEvento ? descricaoEvento : undefined,
-      dataEvento: criarEvento ? dataDe : undefined,
-      tipo: tipoEvento,
-      lido: false, // Todo evento nasce como não lido para o professor
-    };
-
-    setAtribuiu([novaAtribuicao, ...atribuiu]);
-
     try {
-      // ENVIANDO DIRETAMENTE PARA O ENDPOINT QUE O PROFESSOR CONSOME
-      await fetch(`${API_URL}/eventos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(novaAtribuicao),
+      await createEvento({
+        idProfessor: professorSelecionado.idProfessor,
+        idTurma: turmaSelecionada.idTurma,
+        idDisciplina: disciplinaSelecionada.idDisciplina,
+        tituloEvento: tituloEvento.trim(),
+        descricaoEvento: descricaoEvento.trim(),
+        dataEvento: dataEvento.toISOString(),
+        tipo: tipoEvento,
       });
-    } catch (e) {
-      console.log("Modo offline: salvo localmente.", e);
+
+      setTituloEvento("");
+      setDescricaoEvento("");
+      setTipoEvento("comunicado");
+      setDataEvento(new Date());
+      Alert.alert("Sucesso", "Evento enviado para o painel do professor.");
+    } catch (err: any) {
+      Alert.alert(
+        "Erro",
+        err?.message || "Não foi possível emitir o evento.",
+      );
     }
-
-    setTituloEvento("");
-    setDescricaoEvento("");
-    Alert.alert("Sucesso", "Evento enviado para o painel do Professor!");
-  };
-
-  const handleDeletarAtribuicao = (id: string) => {
-    Alert.alert("Remover", "Deseja remover esta atribuição ativa?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover",
-        style: "destructive",
-        onPress: () => setAtribuiu(atribuiu.filter((item) => item.id !== id)),
-      },
-    ]);
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050E1D" />
 
-      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
@@ -178,12 +162,7 @@ export default function CriarEvento() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       <ScrollView
@@ -191,152 +170,210 @@ export default function CriarEvento() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* SELECTS ROW */}
-        <View style={styles.row}>
+        <Text style={styles.sectionTitle}>Emitir Evento Acadêmico</Text>
+
+        <View style={[styles.row, isCompact && styles.rowCompact]}>
           <View style={styles.flexField}>
             <Text style={styles.label}>Disciplina</Text>
             <TouchableOpacity
               style={styles.pickerFake}
-              onPress={() => Alert.alert("Filtro", "Selecione a Disciplina")}
+              activeOpacity={0.8}
+              onPress={() => setShowDisciplinaModal(true)}
             >
-              <Text style={styles.pickerFakeText}>{disciplina}</Text>
+              <Text style={styles.pickerFakeText}>
+                {disciplinaSelecionada?.nome ||
+                  (loadingTurmas ? "Carregando..." : "Selecione")}
+              </Text>
               <Feather name="chevron-down" size={16} color="#7C8DB5" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.flexField}>
-            <Text style={styles.label}>Professor</Text>
-            <TouchableOpacity
-              style={[
-                styles.pickerFake,
-                user?.tipoUsuario === "Professor" && styles.disabledPicker,
-              ]}
-              disabled={
-                carregandoProfessores || user?.tipoUsuario === "Professor"
-              }
-              onPress={() => {
-                if (professores.length === 0) return;
-                Alert.alert(
-                  "Selecionar Professor",
-                  "Escolha um docente:",
-                  professores.map((prof) => ({
-                    text: prof.nome,
-                    onPress: () => setProfessorSelecionado(prof),
-                  })),
-                );
-              }}
-            >
-              <Text style={styles.pickerFakeText}>
-                {carregandoProfessores
-                  ? "Carregando..."
-                  : professorSelecionado?.nome || "Selecione"}
-              </Text>
-              {user?.tipoUsuario !== "Professor" && (
-                <Feather name="chevron-down" size={16} color="#7C8DB5" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.row}>
           <View style={styles.flexField}>
             <Text style={styles.label}>Turma</Text>
             <TouchableOpacity
               style={styles.pickerFake}
-              onPress={() => Alert.alert("Filtro", "Selecione a Turma")}
+              activeOpacity={0.8}
+              onPress={() => setShowTurmaModal(true)}
+              disabled={!disciplinaSelecionada}
             >
-              <Text style={styles.pickerFakeText}>{turma}</Text>
+              <Text style={styles.pickerFakeText}>
+                {turmaSelecionada?.nome ||
+                  (disciplinaSelecionada
+                    ? "Selecione"
+                    : "Escolha a disciplina primeiro")}
+              </Text>
               <Feather name="chevron-down" size={16} color="#7C8DB5" />
             </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.row, isCompact && styles.rowCompact]}>
+          <View style={styles.flexField}>
+            <Text style={styles.label}>Professor</Text>
+            <View style={[styles.pickerFake, styles.disabledPicker]}>
+              <Text style={styles.pickerFakeText}>
+                {professorSelecionado?.nomeProfessor || "Definido pela turma"}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.flexField}>
             <Text style={styles.label}>Data</Text>
             <TouchableOpacity
               style={styles.pickerFake}
-              onPress={() => Alert.alert("Calendário", "Selecione a Data")}
+              activeOpacity={0.8}
+              onPress={() => setShowDatePicker(true)}
             >
-              <Text style={styles.pickerFakeText}>{dataDe}</Text>
+              <Text style={styles.pickerFakeText}>
+                {dataEvento.toLocaleDateString("pt-BR")}
+              </Text>
               <Feather name="calendar" size={16} color="#7C8DB5" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* SELETOR DO TIPO DE CARD VISUAL */}
+        {showDatePicker ? (
+          <DateTimePicker
+            value={dataEvento}
+            mode="date"
+            minimumDate={new Date()}
+            onChange={(_, selectedDate) => {
+              setShowDatePicker(false);
+              if (selectedDate) {
+                setDataEvento(selectedDate);
+              }
+            }}
+          />
+        ) : null}
+
         <Text style={styles.label}>Categoria / Tipo de Alerta</Text>
         <View style={styles.tipoRow}>
           {(["reuniao", "aviso", "comunicado", "importante"] as const).map(
-            (t) => (
+            (tipo) => (
               <TouchableOpacity
-                key={t}
+                key={tipo}
                 style={[
                   styles.tipoButton,
-                  tipoEvento === t && styles.tipoButtonActive,
+                  tipoEvento === tipo && styles.tipoButtonActive,
                 ]}
-                onPress={() => setTipoEvento(t)}
+                onPress={() => setTipoEvento(tipo)}
               >
                 <Text
                   style={[
                     styles.tipoButtonText,
-                    tipoEvento === t && styles.tipoButtonTextActive,
+                    tipoEvento === tipo && styles.tipoButtonTextActive,
                   ]}
                 >
-                  {t.toUpperCase()}
+                  {tipo.toUpperCase()}
                 </Text>
               </TouchableOpacity>
             ),
           )}
         </View>
 
-        {criarEvento && (
-          <View>
-            <Text style={styles.label}>Título do Evento</Text>
-            <TextInput
-              style={styles.input}
-              value={tituloEvento}
-              onChangeText={setTituloEvento}
-            />
+        <Text style={styles.label}>Título do Evento</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: Reunião de alinhamento da turma"
+          placeholderTextColor="#7C8DB5"
+          value={tituloEvento}
+          onChangeText={setTituloEvento}
+        />
 
-            <Text style={styles.label}>Descrição do Evento</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              multiline
-              numberOfLines={3}
-              value={descricaoEvento}
-              onChangeText={setDescricaoEvento}
-            />
-          </View>
-        )}
+        <Text style={styles.label}>Descrição do Evento</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Descreva o comunicado que o professor deve visualizar."
+          placeholderTextColor="#7C8DB5"
+          multiline
+          numberOfLines={4}
+          value={descricaoEvento}
+          onChangeText={setDescricaoEvento}
+        />
 
         <TouchableOpacity
-          style={styles.btnSubmit}
+          style={[styles.btnSubmit, saving && styles.btnSubmitDisabled]}
           activeOpacity={0.8}
-          onPress={handleAtribuirEEvento}
+          onPress={handleCreateEvento}
+          disabled={saving}
         >
-          <Text style={styles.btnSubmitText}>+ Emitir Evento para Painel</Text>
+          {saving ? (
+            <ActivityIndicator color="#050E1D" />
+          ) : (
+            <Text style={styles.btnSubmitText}>Emitir Evento</Text>
+          )}
         </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>
-          Histórico de Envios Coordenador ({atribuiu.length})
-        </Text>
-        {atribuiu.map((item) => (
-          <View key={item.id} style={styles.cardAtribuicao}>
-            <View style={styles.cardHeaderRow}>
-              <View>
-                <Text style={styles.cardCursoNome}>{item.disciplina}</Text>
-                <Text style={styles.cardProfessor}>
-                  Destinatário: {item.nomeProfessor}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => handleDeletarAtribuicao(item.id)}
-              >
-                <Feather name="trash-2" size={18} color="#FF4757" />
-              </TouchableOpacity>
-            </View>
+        <Text style={styles.sectionTitle}>Histórico de Envios ({eventos.length})</Text>
+
+        {loading ? (
+          <ActivityIndicator color="#16C7E7" size="large" />
+        ) : eventos.length === 0 ? (
+          <View style={styles.cardAtribuicao}>
+            <Text style={styles.cardProfessor}>
+              Nenhum evento emitido até o momento.
+            </Text>
           </View>
-        ))}
+        ) : (
+          eventos.map((item) => (
+            <View key={item.id} style={styles.cardAtribuicao}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.cardCursoNome}>{item.tituloEvento}</Text>
+                  <Text style={styles.cardProfessor}>
+                    {item.nomeDisciplina || "Disciplina não informada"} •{" "}
+                    {item.nomeTurma || "Turma não informada"}
+                  </Text>
+                  <Text style={styles.cardProfessor}>
+                    Professor: {item.nomeProfessor || "Não informado"}
+                  </Text>
+                  <Text style={styles.cardProfessor}>
+                    Data: {new Date(item.dataEvento).toLocaleDateString("pt-BR")}
+                  </Text>
+                </View>
+                <View style={styles.tipoBadge}>
+                  <Text style={styles.tipoBadgeText}>{item.tipo.toUpperCase()}</Text>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
+
+      <EntityPicker
+        visible={showDisciplinaModal}
+        title="Selecionar disciplina"
+        items={disciplinas}
+        loading={loadingTurmas}
+        selectedKey={disciplinaSelecionada?.idDisciplina}
+        searchPlaceholder="Buscar disciplina"
+        emptyText="Nenhuma disciplina com turma cadastrada."
+        keyExtractor={(item) => item.idDisciplina}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) => `${item.semestre}º semestre`}
+        onClose={() => setShowDisciplinaModal(false)}
+        onSelect={(item) => {
+          setDisciplinaSelecionada(item);
+          setTurmaSelecionada(null);
+        }}
+      />
+
+      <EntityPicker
+        visible={showTurmaModal}
+        title="Selecionar turma"
+        items={turmasDaDisciplina}
+        loading={loadingTurmas}
+        selectedKey={turmaSelecionada?.idTurma}
+        searchPlaceholder="Buscar turma"
+        emptyText="Nenhuma turma disponível para essa disciplina."
+        keyExtractor={(item) => item.idTurma}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) =>
+          `${item.nomeProfessor || "Sem professor"} • ${item.semestre ?? "-"}º semestre`
+        }
+        onClose={() => setShowTurmaModal(false)}
+        onSelect={(item) => setTurmaSelecionada(item)}
+      />
     </View>
   );
 }
@@ -356,28 +393,16 @@ const styles = StyleSheet.create({
   logoContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   logo: { width: 100, height: 80 },
   notification: {
-    position: "relative",
     width: 50,
     height: 50,
     alignItems: "center",
     justifyContent: "center",
   },
-  notificationBadge: {
-    position: "absolute",
-    top: -4,
-    right: 2,
-    backgroundColor: "#ff4757",
-    borderRadius: 8,
-    width: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeText: { color: "#fff", fontSize: 11, fontWeight: "bold" },
   contentArea: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
   label: { color: "#7C8DB5", fontSize: 14, marginBottom: 8 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 16 },
+  rowCompact: { flexDirection: "column", gap: 0 },
   flexField: { flex: 1 },
   pickerFake: {
     backgroundColor: "#101D33",
@@ -425,6 +450,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 32,
   },
+  btnSubmitDisabled: { opacity: 0.7 },
   btnSubmitText: { color: "#050E1D", fontSize: 16, fontWeight: "bold" },
   sectionTitle: {
     color: "#FFFFFF",
@@ -452,4 +478,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardProfessor: { color: "#7C8DB5", fontSize: 14 },
+  tipoBadge: {
+    backgroundColor: "rgba(22, 199, 231, 0.12)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+  },
+  tipoBadgeText: {
+    color: "#16C7E7",
+    fontSize: 11,
+    fontWeight: "700",
+  },
 });

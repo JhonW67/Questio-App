@@ -1,6 +1,28 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import type {
+  AcademicEvent,
+  AcademicEventPayload,
+  Aluno,
+  CreateTaskPayload,
+  Curso,
+  CursoPayload,
+  Disciplina,
+  MatriculaPayload,
+  Professor,
+  RegisterPayload,
+  Turma,
+  TurmaPayload,
+} from "../types/academic";
+import {
+  normalizeAcademicEvent,
+  normalizeAluno,
+  normalizeCurso,
+  normalizeDisciplina,
+  normalizeProfessor,
+  normalizeTurma,
+} from "../types/academic";
 
 const SECURE_STORE_TOKEN_KEY = "questio_token";
 
@@ -39,5 +61,97 @@ api.interceptors.request.use(
     return Promise.reject(error);
   },
 );
+
+export async function getCursos(): Promise<Curso[]> {
+  const { data } = await api.get("/academic/cursos");
+  return Array.isArray(data) ? data.map(normalizeCurso) : [];
+}
+
+export async function createCurso(payload: CursoPayload): Promise<Curso> {
+  const { data } = await api.post("/academic/cursos", payload);
+  return normalizeCurso(data);
+}
+
+export async function getDisciplinasByCursoSemestre(
+  idCurso: string,
+  semestre?: number | null,
+): Promise<Disciplina[]> {
+  const { data } = await api.get(`/academic/cursos/${idCurso}/disciplinas`, {
+    params: semestre ? { semestre } : undefined,
+  });
+
+  return Array.isArray(data) ? data.map(normalizeDisciplina) : [];
+}
+
+export async function getProfessores(): Promise<Professor[]> {
+  const { data } = await api.get("/user/professores");
+  return Array.isArray(data) ? data.map(normalizeProfessor) : [];
+}
+
+export async function getAlunos(): Promise<Aluno[]> {
+  const { data } = await api.get("/user/alunos");
+  return Array.isArray(data) ? data.map(normalizeAluno) : [];
+}
+
+export async function getTurmas(): Promise<Turma[]> {
+  const { data } = await api.get("/coordenacao/turmas");
+  return Array.isArray(data) ? data.map(normalizeTurma) : [];
+}
+
+export async function createTurma(payload: TurmaPayload): Promise<Turma> {
+  const { data } = await api.post("/coordenacao/turmas", payload);
+  return normalizeTurma(data);
+}
+
+export async function matricularAlunos(
+  payload: MatriculaPayload,
+): Promise<void> {
+  await api.post("/coordenacao/matricular-alunos", payload);
+}
+
+export async function deleteTurma(idTurma: string): Promise<void> {
+  await api.delete(`/coordenacao/turmas/${idTurma}`);
+}
+
+export async function registerUser(payload: RegisterPayload) {
+  const { data } = await api.post("/auth/register", payload);
+  return data;
+}
+
+export async function createTask(payload: CreateTaskPayload) {
+  const { data } = await api.post("/tarefas/criar", {
+    titulo: payload.titulo,
+    descricao: payload.descricao,
+    prazo: payload.prazo,
+    pontos: payload.pontos,
+    idClass: payload.idTurma,
+  });
+
+  return data;
+}
+
+export async function getAcademicEvents(): Promise<AcademicEvent[]> {
+  const { data } = await api.get("/eventos");
+  return Array.isArray(data) ? data.map(normalizeAcademicEvent) : [];
+}
+
+export async function getProfessorEvents(): Promise<AcademicEvent[]> {
+  const { data } = await api.get("/eventos/professor");
+  return Array.isArray(data) ? data.map(normalizeAcademicEvent) : [];
+}
+
+export async function createAcademicEvent(
+  payload: AcademicEventPayload,
+): Promise<AcademicEvent> {
+  const { data } = await api.post("/eventos", payload);
+  return normalizeAcademicEvent(data);
+}
+
+export async function markAcademicEventAsRead(
+  idEvento: string,
+): Promise<AcademicEvent> {
+  const { data } = await api.patch(`/eventos/${idEvento}/lido`);
+  return normalizeAcademicEvent(data);
+}
 
 export default api;

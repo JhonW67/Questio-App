@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,63 +20,61 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Input } from "../../../../components/input/input";
 import { Button } from "../../../../components/button/button";
 import { ScreenLoader } from "../../../../components/Loading/loader";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { EntityPicker } from "../../../../components/select/EntityPicker";
+import { useProfessorTasks } from "../../../../hooks/useProfessorTasks";
 import { styles } from "../../../../styles/CreateTasks";
-import api from "../../../../services/api";
-
-// ─── Tipos (Ajustado para suportar o retorno da Grade) ─────────────────────────
-interface Turma {
-  idClass: string; // Mantido para o POST de tarefas
-  nome: string;
-}
 
 export default function CreateTask() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const {
+    disciplinas,
+    turmasDaDisciplina,
+    disciplinaSelecionadaId,
+    setDisciplinaSelecionada,
+    loading,
+    submitting,
+    error,
+    submitTask,
+  } = useProfessorTasks();
 
-  // Campos do formulário
   const [titulo, setTitulo] = useState("");
   const [objetivo, setObjetivo] = useState("");
   const [pontos, setPontos] = useState("");
   const [arquivos, setArquivos] = useState<any[]>([]);
   const [dataEntrega, setDataEntrega] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-
-  // Turma selecionada
-  const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [turmaSelecionada, setTurmaSelecionada] = useState<Turma | null>(null);
+  const [turmaSelecionadaId, setTurmaSelecionadaId] = useState<string | null>(null);
   const [showTurmaModal, setShowTurmaModal] = useState(false);
-  const [loadingTurmas, setLoadingTurmas] = useState(true);
+  const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
 
-  // Estado geral
-  const [loading, setLoading] = useState(false);
+  const isCompact = width < 380;
+  const modalMaxHeight = Math.round(height * 0.72);
 
-  // ── Buscar turmas do professor ao montar ──────────────────────────────────
+  const turmaSelecionada =
+    turmasDaDisciplina.find((item) => item.idTurma === turmaSelecionadaId) ?? null;
+
   useEffect(() => {
-    buscarTurmas();
-  }, []);
-
-  const buscarTurmas = async () => {
-    try {
-      setLoadingTurmas(true);
-      const res = await api.get("/coordenacao/turmas");
-
-      // No Axios, os dados já vêm mastigados dentro de .data
-      if (res.data) {
-        console.log("=== TURMAS RECEBIDAS COM AXIOS ===", res.data);
-
-        const turmasNormalizadas: Turma[] = res.data.map((item: any) => ({
-          idClass: item.idClass || item.idTurma,
-          nome: item.nome,
-        }));
-
-        setTurmas(turmasNormalizadas);
-      }
-    } catch (e: any) {
-      console.error("Erro ao buscar turmas com Axios:", e?.response?.data || e);
-      Alert.alert("Erro", "Não foi possível carregar as turmas.");
-    } finally {
-      setLoadingTurmas(false);
+    if (!disciplinaSelecionadaId) {
+      setTurmaSelecionadaId(null);
+      return;
     }
-  };
+
+    const turmaAtualExiste = turmasDaDisciplina.some(
+      (item) => item.idTurma === turmaSelecionadaId,
+    );
+
+    if (!turmaAtualExiste) {
+      setTurmaSelecionadaId(null);
+    }
+  }, [disciplinaSelecionadaId, turmaSelecionadaId, turmasDaDisciplina]);
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert("Erro", error);
+    }
+  }, [error]);
 
   const handlePickDocument = async () => {
     try {
@@ -114,29 +113,21 @@ export default function CreateTask() {
     const pontosNum = parseInt(pontos, 10);
     const prazoISO = dataEntrega.toISOString().slice(0, 19);
 
-    const body = {
-      titulo: titulo.trim(),
-      descricao: objetivo.trim(),
-      prazo: prazoISO,
-      pontos: pontosNum,
-      idClass: turmaSelecionada.idClass,
-    };
-
     try {
-      setLoading(true);
-      const res = await api.post("/tarefas/criar", body);
+      await submitTask({
+        titulo: titulo.trim(),
+        descricao: objetivo.trim(),
+        prazo: prazoISO,
+        pontos: Number.isNaN(pontosNum) ? 0 : pontosNum,
+        idTurma: turmaSelecionada.idTurma,
+      });
 
-      if (res.status === 201 || res.status === 200) {
-        Alert.alert("Sucesso", "Tarefa criada com sucesso!", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
-      }
+      Alert.alert("Sucesso", "Tarefa criada com sucesso!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
     } catch (e: any) {
-      console.error("Erro ao criar tarefa:", e?.response?.data || e);
-      const msg = e.response?.data?.message || "Erro ao criar a tarefa.";
+      const msg = e?.response?.data?.message || "Erro ao criar a tarefa.";
       Alert.alert("Erro", msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -154,17 +145,15 @@ export default function CreateTask() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: isCompact ? 14 : 20 },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -207,7 +196,35 @@ export default function CreateTask() {
             keyboardType="numeric"
           />
 
-          {/* Input de Selecionar Turma (Abre o Modal) */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowDisciplinaModal(true)}
+          >
+            <View pointerEvents="none">
+              <Input
+                label="Disciplina"
+                iconName="book-open"
+                placeholder={
+                  loading
+                    ? "Carregando disciplinas..."
+                    : "Selecione uma disciplina"
+                }
+                value={
+                  disciplinas.find(
+                    (item) => item.idDisciplina === disciplinaSelecionadaId,
+                  )?.nome ?? ""
+                }
+                rightElement={
+                  loading ? (
+                    <ActivityIndicator size="small" color="#00D2B4" />
+                  ) : (
+                    <Feather name="chevron-down" size={18} color="#5D708A" />
+                  )
+                }
+              />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setShowTurmaModal(true)}
@@ -217,11 +234,13 @@ export default function CreateTask() {
                 label="Turma"
                 iconName="users"
                 placeholder={
-                  loadingTurmas ? "Carregando turmas..." : "Selecione uma turma"
+                  disciplinaSelecionadaId
+                    ? "Selecione uma turma"
+                    : "Selecione a disciplina primeiro"
                 }
                 value={turmaSelecionada?.nome ?? ""}
                 rightElement={
-                  loadingTurmas ? (
+                  loading ? (
                     <ActivityIndicator size="small" color="#00D2B4" />
                   ) : (
                     <Feather name="chevron-down" size={18} color="#5D708A" />
@@ -297,13 +316,18 @@ export default function CreateTask() {
           <Button
             title="Salvar Tarefa no Diário"
             onPress={handleSalvarTarefa}
-            disabled={!titulo || !objetivo || !turmaSelecionada || !dataEntrega}
+            disabled={
+              submitting ||
+              !titulo ||
+              !objetivo ||
+              !turmaSelecionada ||
+              !dataEntrega
+            }
             style={{ marginTop: 25, marginBottom: 40 }}
           />
         </View>
       </ScrollView>
 
-      {/* ─── MODAL DE SELEÇÃO DE TURMAS ──────────────────────────────────────── */}
       <Modal
         visible={showTurmaModal}
         animationType="slide"
@@ -311,7 +335,7 @@ export default function CreateTask() {
         onRequestClose={() => setShowTurmaModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: modalMaxHeight }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecione a Turma</Text>
               <TouchableOpacity onPress={() => setShowTurmaModal(false)}>
@@ -319,7 +343,7 @@ export default function CreateTask() {
               </TouchableOpacity>
             </View>
 
-            {loadingTurmas ? (
+            {loading ? (
               <ActivityIndicator
                 size="large"
                 color="#00D2B4"
@@ -327,13 +351,13 @@ export default function CreateTask() {
               />
             ) : (
               <FlatList
-                data={turmas}
-                keyExtractor={(item) => item.idClass}
+                data={turmasDaDisciplina}
+                keyExtractor={(item) => item.idTurma}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.turmaItem}
                     onPress={() => {
-                      setTurmaSelecionada(item);
+                      setTurmaSelecionadaId(item.idTurma);
                       setShowTurmaModal(false);
                     }}
                   >
@@ -344,7 +368,7 @@ export default function CreateTask() {
                       style={{ marginRight: 12 }}
                     />
                     <Text style={styles.turmaItemText}>{item.nome}</Text>
-                    {turmaSelecionada?.idClass === item.idClass && (
+                    {turmaSelecionada?.idTurma === item.idTurma && (
                       <Feather
                         name="check"
                         size={18}
@@ -356,7 +380,7 @@ export default function CreateTask() {
                 )}
                 ListEmptyComponent={
                   <Text style={styles.emptyText}>
-                    Nenhuma turma cadastrada encontrada.
+                    Nenhuma turma encontrada para a disciplina selecionada.
                   </Text>
                 }
               />
@@ -364,6 +388,26 @@ export default function CreateTask() {
           </View>
         </View>
       </Modal>
+
+      <EntityPicker
+        visible={showDisciplinaModal}
+        title="Selecionar disciplina"
+        items={disciplinas}
+        loading={loading}
+        selectedKey={disciplinaSelecionadaId}
+        searchPlaceholder="Buscar disciplina"
+        emptyText="Nenhuma disciplina vinculada ao professor."
+        keyExtractor={(item) => item.idDisciplina}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) =>
+          item.semestre ? `${item.semestre}º semestre` : "Disciplina"
+        }
+        onClose={() => setShowDisciplinaModal(false)}
+        onSelect={(item) => {
+          setDisciplinaSelecionada(item.idDisciplina);
+          setTurmaSelecionadaId(null);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

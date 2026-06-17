@@ -24,6 +24,16 @@ public class Class {
     @JoinColumn(name = "id_professor")
     private User professor;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_curso")
+    private Curso curso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_disciplina")
+    private Disciplina disciplina;
+
+    private Integer semestre;
+
     @Builder.Default
     private boolean ativa = true;
 

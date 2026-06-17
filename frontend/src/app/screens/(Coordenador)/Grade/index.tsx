@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,137 +9,80 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { styles } from "../../../../styles/Grade";
-import api from "../../../../services/api";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { EntityPicker } from "../../../../components/select/EntityPicker";
+import { useCursos } from "../../../../hooks/useCursos";
+import { useDisciplinas } from "../../../../hooks/useDisciplinas";
+import { useTurmas } from "../../../../hooks/useTurmas";
 import { useAuth } from "../../../../context/AuthContext";
-
-interface Professor {
-  idUsuario: string;
-  nome: string;
-  email: string;
-}
-
-interface Aluno {
-  idUsuario: string;
-  nome: string;
-  email: string;
-}
-
-interface ClassResponseDTO {
-  idTurma: string;
-  nome: string;
-  nomeProfessor: string;
-  ativa: boolean;
-}
+import type {
+  Aluno,
+  Curso,
+  Disciplina,
+  Professor,
+  SemestreOption,
+  Turma,
+} from "../../../../types/academic";
+import { SEMESTRE_OPTIONS } from "../../../../types/academic";
 
 export default function CriarTurma() {
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const { cursos, loading: loadingCursos } = useCursos();
+  const {
+    turmas,
+    professores,
+    alunos,
+    loading,
+    loadingProfessores,
+    loadingAlunos,
+    saving,
+    refresh,
+    loadProfessores,
+    loadAlunos,
+    createTurma,
+    matricularAlunos,
+    deleteTurma,
+  } = useTurmas();
 
   const [nome, setNome] = useState("");
-  const [professores, setProfessores] = useState<Professor[]>([]);
-  const [professorSelecionado, setProfessorSelecionado] =
-    useState<Professor | null>(null);
-  const [loadingProfessores, setLoadingProfessores] = useState(false);
-  const [loadingTurmas, setLoadingTurmas] = useState(false);
-  const [loadingAlunos, setLoadingAlunos] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loadingMatricula, setLoadingMatricula] = useState(false);
-  const [turmasCriadas, setTurmasCriadas] = useState<ClassResponseDTO[]>([]);
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [cursoSelecionado, setCursoSelecionado] = useState<Curso | null>(null);
+  const [semestreSelecionado, setSemestreSelecionado] = useState<SemestreOption>(
+    SEMESTRE_OPTIONS[0],
+  );
+  const [professorSelecionado, setProfessorSelecionado] = useState<Professor | null>(
+    null,
+  );
+  const [disciplinaSelecionada, setDisciplinaSelecionada] =
+    useState<Disciplina | null>(null);
   const [turmaSelecionadaMatricula, setTurmaSelecionadaMatricula] =
-    useState<ClassResponseDTO | null>(null);
+    useState<Turma | null>(null);
   const [alunosSelecionados, setAlunosSelecionados] = useState<Aluno[]>([]);
   const [buscaAluno, setBuscaAluno] = useState("");
   const [showAlunoModal, setShowAlunoModal] = useState(false);
+  const [showCursoModal, setShowCursoModal] = useState(false);
+  const [showSemestreModal, setShowSemestreModal] = useState(false);
+  const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
+  const [showProfessorModal, setShowProfessorModal] = useState(false);
+  const [showTurmaModal, setShowTurmaModal] = useState(false);
 
-  async function carregarProfessoresETurmas() {
-    setLoadingProfessores(true);
-    setLoadingTurmas(true);
+  const isCompact = width < 430;
 
-    try {
-      const [resProfessores, resTurmas] = await Promise.all([
-        api.get<Professor[]>("/user/professores"),
-        api.get<ClassResponseDTO[]>("/coordenacao/turmas"),
-      ]);
-
-      const professoresOrdenados = resProfessores.data ?? [];
-      setProfessores(professoresOrdenados);
-      setProfessorSelecionado((atual) => {
-        if (atual) {
-          return (
-            professoresOrdenados.find(
-              (professor) => professor.idUsuario === atual.idUsuario,
-            ) ?? professoresOrdenados[0] ?? null
-          );
-        }
-        return professoresOrdenados[0] ?? null;
-      });
-
-      const turmas = resTurmas.data ?? [];
-      setTurmasCriadas(turmas);
-      setTurmaSelecionadaMatricula((atual) => {
-        if (atual) {
-          return turmas.find((turma) => turma.idTurma === atual.idTurma) ?? null;
-        }
-        return turmas[0] ?? null;
-      });
-    } catch (error: any) {
-      console.log(
-        "Erro ao carregar professores e turmas:",
-        error?.response?.data || error,
-      );
-      Alert.alert(
-        "Erro",
-        "Não foi possível carregar os professores e turmas cadastradas.",
-      );
-    } finally {
-      setLoadingProfessores(false);
-      setLoadingTurmas(false);
-    }
-  }
-
-  async function carregarAlunos() {
-    try {
-      setLoadingAlunos(true);
-      const resAlunos = await api.get<Aluno[]>("/user/alunos");
-      setAlunos(resAlunos.data ?? []);
-      return resAlunos.data ?? [];
-    } catch (error: any) {
-      console.log("Erro ao carregar alunos:", error?.response?.data || error);
-      Alert.alert(
-        "Erro",
-        error?.response?.status === 403
-          ? "Seu usuário não tem permissão para listar alunos."
-          : "Não foi possível carregar os alunos para matrícula.",
-      );
-      return [];
-    } finally {
-      setLoadingAlunos(false);
-    }
-  }
+  const { disciplinas, loading: loadingDisciplinas } = useDisciplinas({
+    idCurso: cursoSelecionado?.idCurso,
+    semestre: semestreSelecionado.value,
+  });
 
   useEffect(() => {
     if (user?.token) {
-      carregarProfessoresETurmas();
+      refresh();
+      loadProfessores();
     }
-  }, [user]);
-
-  function handleSelecionarProfessor() {
-    if (loadingProfessores || professores.length === 0) {
-      return;
-    }
-
-    Alert.alert(
-      "Selecionar Professor",
-      "Escolha o professor responsável pela turma.",
-      professores.map((professor) => ({
-        text: professor.nome,
-        onPress: () => setProfessorSelecionado(professor),
-      })),
-    );
-  }
+  }, [loadProfessores, refresh, user?.token]);
 
   async function handleCriarTurma() {
     if (!nome.trim()) {
@@ -152,6 +95,16 @@ export default function CriarTurma() {
       return;
     }
 
+    if (!cursoSelecionado) {
+      Alert.alert("Atenção", "Selecione o curso da turma.");
+      return;
+    }
+
+    if (!disciplinaSelecionada) {
+      Alert.alert("Atenção", "Selecione a disciplina da turma.");
+      return;
+    }
+
     if (!professorSelecionado) {
       Alert.alert(
         "Atenção",
@@ -160,53 +113,28 @@ export default function CriarTurma() {
       return;
     }
 
-    setLoading(true);
-
     try {
-      const classRequestDTO = {
+      const turmaCriada = await createTurma({
         nome: nome.trim(),
         idProfessor: professorSelecionado.idUsuario,
-      };
+        idCurso: cursoSelecionado.idCurso,
+        idDisciplina: disciplinaSelecionada.idDisciplina,
+        semestre: semestreSelecionado.value,
+      });
 
-      const resposta = await api.post<ClassResponseDTO>(
-        "/coordenacao/turmas",
-        classRequestDTO,
-      );
-
-      setTurmasCriadas((prev) => [resposta.data, ...prev]);
-      setTurmaSelecionadaMatricula(resposta.data);
+      setTurmaSelecionadaMatricula(turmaCriada);
       Alert.alert(
         "Sucesso",
-        `Turma "${resposta.data.nome}" criada com sucesso pelo Coordenador!`,
+        `Turma "${turmaCriada.nome}" criada com sucesso.`,
       );
       setNome("");
+      setDisciplinaSelecionada(null);
     } catch (error: any) {
-      console.log(
-        "Erro completo ao salvar turma:",
-        error?.response?.data || error,
+      Alert.alert(
+        "Erro ao criar turma",
+        error?.message || "Não foi possível salvar a turma.",
       );
-      const mensagemErro =
-        error.response?.data?.message ||
-        "Erro ao salvar no servidor do Render.";
-      Alert.alert("Erro ao criar turma", mensagemErro);
-    } finally {
-      setLoading(false);
     }
-  }
-
-  function handleSelecionarTurmaMatricula() {
-    if (loadingTurmas || turmasCriadas.length === 0) {
-      return;
-    }
-
-    Alert.alert(
-      "Selecionar Turma",
-      "Escolha a turma que receberá os alunos.",
-      turmasCriadas.map((turma) => ({
-        text: turma.nome,
-        onPress: () => setTurmaSelecionadaMatricula(turma),
-      })),
-    );
   }
 
   function toggleAlunoSelecionado(aluno: Aluno) {
@@ -235,8 +163,7 @@ export default function CriarTurma() {
     }
 
     try {
-      setLoadingMatricula(true);
-      await api.post("/coordenacao/matricular-alunos", {
+      await matricularAlunos({
         idTurma: turmaSelecionadaMatricula.idTurma,
         idsAlunos: alunosSelecionados.map((aluno) => aluno.idUsuario),
       });
@@ -249,20 +176,16 @@ export default function CriarTurma() {
       setBuscaAluno("");
       setShowAlunoModal(false);
     } catch (error: any) {
-      console.log("Erro ao matricular alunos:", error?.response?.data || error);
       Alert.alert(
         "Erro ao matricular alunos",
-        error?.response?.data?.message ||
-          "Não foi possível vincular os alunos à turma.",
+        error?.message || "Não foi possível vincular os alunos à turma.",
       );
-    } finally {
-      setLoadingMatricula(false);
     }
   }
 
   async function abrirModalAlunos() {
     if (alunos.length === 0 && !loadingAlunos) {
-      const alunosCarregados = await carregarAlunos();
+      const alunosCarregados = await loadAlunos();
       if (alunosCarregados.length === 0) {
         return;
       }
@@ -273,21 +196,16 @@ export default function CriarTurma() {
 
   async function excluirTurma(idTurma: string, nomeTurma: string) {
     try {
-      setLoading(true);
-      await api.delete(`/coordenacao/turmas/${idTurma}`);
-      setTurmasCriadas((prev) => prev.filter((t) => t.idTurma !== idTurma));
+      await deleteTurma(idTurma);
       setTurmaSelecionadaMatricula((atual) =>
         atual?.idTurma === idTurma ? null : atual,
       );
       Alert.alert("Sucesso", `Turma "${nomeTurma}" removida com sucesso!`);
     } catch (error: any) {
-      console.log("Erro ao excluir turma:", error?.response?.data || error);
       Alert.alert(
         "Erro ao excluir turma",
-        error?.response?.data?.message || "Não foi possível remover a turma.",
+        error?.message || "Não foi possível remover a turma.",
       );
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -316,6 +234,11 @@ export default function CriarTurma() {
     );
   });
 
+  const subtituloTurma = (turma: Turma) =>
+    [turma.nomeCurso, turma.nomeDisciplina, turma.nomeProfessor]
+      .filter(Boolean)
+      .join(" • ");
+
   return (
     <ScrollView
       style={styles.container}
@@ -330,17 +253,11 @@ export default function CriarTurma() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       <Text style={styles.title}>Criar Turma</Text>
 
-      {/* Card do Formulário */}
       <View style={styles.card}>
         <Text style={styles.label}>Nome da Turma</Text>
         <TextInput
@@ -352,7 +269,64 @@ export default function CriarTurma() {
           autoCapitalize="words"
         />
 
-        <Text style={styles.label}>Usuário Responsável Vinculado</Text>
+        <View
+          style={[
+            { flexDirection: "row", gap: 12 },
+            isCompact && { flexDirection: "column", gap: 0 },
+          ]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Curso</Text>
+            <TouchableOpacity
+              style={styles.select}
+              activeOpacity={0.8}
+              onPress={() => setShowCursoModal(true)}
+            >
+              <Text style={styles.selectValue}>
+                {cursoSelecionado?.nome ||
+                  (loadingCursos ? "Carregando cursos..." : "Selecione o curso")}
+              </Text>
+              <Feather name="chevron-down" size={16} color="#7c8db5" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Semestre</Text>
+            <TouchableOpacity
+              style={styles.select}
+              activeOpacity={0.8}
+              onPress={() => setShowSemestreModal(true)}
+            >
+              <Text style={styles.selectValue}>{semestreSelecionado.label}</Text>
+              <Feather name="chevron-down" size={16} color="#7c8db5" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.label}>Disciplina</Text>
+        {loadingDisciplinas ? (
+          <View style={styles.loadingSelect}>
+            <ActivityIndicator color="#16C7E7" size="small" />
+            <Text style={styles.loadingText}>Carregando disciplinas...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.select}
+            activeOpacity={0.8}
+            onPress={() => setShowDisciplinaModal(true)}
+            disabled={!cursoSelecionado || disciplinas.length === 0}
+          >
+            <Text style={styles.selectValue}>
+              {disciplinaSelecionada?.nome ||
+                (cursoSelecionado
+                  ? "Selecione a disciplina"
+                  : "Selecione primeiro o curso")}
+            </Text>
+            <Feather name="chevron-down" size={16} color="#7c8db5" />
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.label}>Professor Responsável</Text>
 
         {loadingProfessores ? (
           <View style={styles.loadingSelect}>
@@ -363,17 +337,17 @@ export default function CriarTurma() {
           <TouchableOpacity
             style={styles.select}
             activeOpacity={0.8}
-            onPress={handleSelecionarProfessor}
+            onPress={() => setShowProfessorModal(true)}
             disabled={professores.length === 0}
           >
             <Text style={styles.selectValue}>
-              {professorSelecionado?.nome || "Nenhum professor encontrado"}
+              {professorSelecionado?.nome || "Selecione o professor"}
             </Text>
             <Feather name="chevron-down" size={16} color="#7c8db5" />
           </TouchableOpacity>
         )}
 
-        {professorSelecionado && (
+        {professorSelecionado ? (
           <View style={styles.usuarioSelecionadoContainer}>
             <View style={styles.avatarCircle}>
               <Text style={styles.avatarInitial}>
@@ -392,15 +366,15 @@ export default function CriarTurma() {
 
             <Feather name="check-circle" size={22} color="#16C7E7" />
           </View>
-        )}
+        ) : null}
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, saving && styles.buttonDisabled]}
           onPress={handleCriarTurma}
-          disabled={loading || !professorSelecionado}
+          disabled={saving || !professorSelecionado || !disciplinaSelecionada}
           activeOpacity={0.8}
         >
-          {loading ? (
+          {saving ? (
             <ActivityIndicator color="#050E1D" />
           ) : (
             <>
@@ -422,8 +396,8 @@ export default function CriarTurma() {
         <TouchableOpacity
           style={styles.select}
           activeOpacity={0.8}
-          onPress={handleSelecionarTurmaMatricula}
-          disabled={loadingTurmas || turmasCriadas.length === 0}
+          onPress={() => setShowTurmaModal(true)}
+          disabled={loading || turmas.length === 0}
         >
           <Text style={styles.selectValue}>
             {turmaSelecionadaMatricula?.nome || "Nenhuma turma disponível"}
@@ -468,16 +442,16 @@ export default function CriarTurma() {
         )}
 
         <TouchableOpacity
-          style={[styles.button, loadingMatricula && styles.buttonDisabled]}
+          style={[styles.button, saving && styles.buttonDisabled]}
           onPress={handleMatricularAlunos}
           disabled={
-            loadingMatricula ||
+            saving ||
             !turmaSelecionadaMatricula ||
             alunosSelecionados.length === 0
           }
           activeOpacity={0.8}
         >
-          {loadingMatricula ? (
+          {saving ? (
             <ActivityIndicator color="#050E1D" />
           ) : (
             <>
@@ -490,11 +464,11 @@ export default function CriarTurma() {
 
       <Text style={styles.sectionTitle}>Turmas cadastradas</Text>
 
-      {loadingTurmas ? (
+      {loading ? (
         <ActivityIndicator color="#16C7E7" size="large" />
-      ) : turmasCriadas.length > 0 ? (
+      ) : turmas.length > 0 ? (
         <>
-          {turmasCriadas.map((turma) => (
+          {turmas.map((turma) => (
             <View
               key={turma.idTurma}
               style={[
@@ -517,7 +491,7 @@ export default function CriarTurma() {
                   )}
                 </View>
                 <Text style={styles.turmaInfo}>
-                  Responsável: {turma.nomeProfessor}
+                  {subtituloTurma(turma)}
                 </Text>
                 <Text style={styles.turmaId} numberOfLines={1}>
                   ID: {turma.idTurma}
@@ -610,16 +584,16 @@ export default function CriarTurma() {
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.button, loadingMatricula && styles.buttonDisabled]}
+              style={[styles.button, saving && styles.buttonDisabled]}
               onPress={handleMatricularAlunos}
               disabled={
-                loadingMatricula ||
+                saving ||
                 !turmaSelecionadaMatricula ||
                 alunosSelecionados.length === 0
               }
               activeOpacity={0.8}
             >
-              {loadingMatricula ? (
+              {saving ? (
                 <ActivityIndicator color="#050E1D" />
               ) : (
                 <>
@@ -631,6 +605,87 @@ export default function CriarTurma() {
           </View>
         </View>
       </Modal>
+
+      <EntityPicker
+        visible={showCursoModal}
+        title="Selecionar curso"
+        items={cursos}
+        loading={loadingCursos}
+        selectedKey={cursoSelecionado?.idCurso}
+        searchPlaceholder="Buscar curso"
+        emptyText="Nenhum curso cadastrado."
+        keyExtractor={(item) => item.idCurso}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) =>
+          item.vagas ? `${item.vagas} vagas` : "Curso acadêmico"
+        }
+        onClose={() => setShowCursoModal(false)}
+        onSelect={(item) => {
+          setCursoSelecionado(item);
+          setDisciplinaSelecionada(null);
+        }}
+      />
+
+      <EntityPicker
+        visible={showSemestreModal}
+        title="Selecionar semestre"
+        items={SEMESTRE_OPTIONS}
+        selectedKey={String(semestreSelecionado.value)}
+        searchPlaceholder="Buscar semestre"
+        emptyText="Nenhum semestre encontrado."
+        keyExtractor={(item) => String(item.value)}
+        labelExtractor={(item) => item.label}
+        onClose={() => setShowSemestreModal(false)}
+        onSelect={(item) => {
+          setSemestreSelecionado(item);
+          setDisciplinaSelecionada(null);
+        }}
+      />
+
+      <EntityPicker
+        visible={showDisciplinaModal}
+        title="Selecionar disciplina"
+        items={disciplinas}
+        loading={loadingDisciplinas}
+        selectedKey={disciplinaSelecionada?.idDisciplina}
+        searchPlaceholder="Buscar disciplina"
+        emptyText="Nenhuma disciplina encontrada para esse curso e semestre."
+        keyExtractor={(item) => item.idDisciplina}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) => `${item.semestre}º semestre • ${item.cargaHoraria ?? 0}h`}
+        onClose={() => setShowDisciplinaModal(false)}
+        onSelect={(item) => setDisciplinaSelecionada(item)}
+      />
+
+      <EntityPicker
+        visible={showProfessorModal}
+        title="Selecionar professor"
+        items={professores}
+        loading={loadingProfessores}
+        selectedKey={professorSelecionado?.idUsuario}
+        searchPlaceholder="Buscar professor"
+        emptyText="Nenhum professor disponível."
+        keyExtractor={(item) => item.idUsuario}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={(item) => item.email}
+        onClose={() => setShowProfessorModal(false)}
+        onSelect={(item) => setProfessorSelecionado(item)}
+      />
+
+      <EntityPicker
+        visible={showTurmaModal}
+        title="Selecionar turma"
+        items={turmas}
+        loading={loading}
+        selectedKey={turmaSelecionadaMatricula?.idTurma}
+        searchPlaceholder="Buscar turma"
+        emptyText="Nenhuma turma cadastrada."
+        keyExtractor={(item) => item.idTurma}
+        labelExtractor={(item) => item.nome}
+        subtitleExtractor={subtituloTurma}
+        onClose={() => setShowTurmaModal(false)}
+        onSelect={(item) => setTurmaSelecionadaMatricula(item)}
+      />
     </ScrollView>
   );
 }

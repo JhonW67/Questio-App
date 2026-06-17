@@ -12,6 +12,7 @@ import api from "../../../../services/api";
 import { styles } from "../../../../styles/Tasks";
 import TaskFilterTabs, { TaskFilter } from "../../../../components/pill/pill";
 import Ionicons from "@expo/vector-icons/build/Ionicons";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 interface Tarefa {
   id: string;
@@ -87,12 +88,7 @@ export default function Tasks() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
       <Text style={styles.pageTitle}>Tarefas</Text>
 

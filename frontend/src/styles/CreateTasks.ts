@@ -241,7 +241,6 @@ export const styles = StyleSheet.create({
     backgroundColor: "#101D33",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: 0.7, // No máximo 70% da altura da tela
     paddingBottom: 30,
     borderTopWidth: 1,
     borderColor: "rgba(22, 199, 231, 0.15)",

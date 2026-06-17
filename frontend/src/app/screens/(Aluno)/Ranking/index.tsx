@@ -13,6 +13,7 @@ import { useAuth } from "../../../../context/AuthContext";
 import { styles } from "../../../../styles/Ranking";
 import api from "../../../../services/api";
 import { Ionicons } from "@expo/vector-icons";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 interface RankingDTO {
   nome: string;
@@ -134,13 +135,7 @@ export default function Rankings() {
           />
         </View>
 
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       <Text style={styles.pageTitle}>Ranking</Text>

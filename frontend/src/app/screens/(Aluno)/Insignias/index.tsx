@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Image , TouchableOpacity } from "re
 import { styles } from "../../../../styles/Insignias";
 import { BADGES, CATEGORIES } from "../../../../data/Insignias";
 import Ionicons from "@expo/vector-icons/build/Ionicons";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 export default function Insignias() {
   const [activeCategory, setActiveCategory] = useState('todas');
@@ -23,12 +24,7 @@ export default function Insignias() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
     <View style={styles.screen}>

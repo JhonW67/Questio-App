@@ -12,4 +12,6 @@ import java.util.UUID;
 public interface ClassRepository extends JpaRepository<Class, UUID> {
     List<Class> findAllByOrderByNomeAsc();
     List<Class> findByProfessorIdUsuarioOrderByNomeAsc(UUID idProfessor);
+    List<Class> findByDisciplinaIdDisciplinaOrderByNomeAsc(UUID idDisciplina);
+    List<Class> findByProfessorIdUsuarioAndDisciplinaIdDisciplinaOrderByNomeAsc(UUID idProfessor, UUID idDisciplina);
 }

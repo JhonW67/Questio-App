@@ -11,6 +11,7 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { styles } from "../../../../styles/HomeCoordenacao";
 import { router } from "expo-router";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
 
 interface CursoDTO {
   id: string;
@@ -87,12 +88,7 @@ export default function Home() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       {/* --- CONTEÚDO SCROLLÁVEL --- */}

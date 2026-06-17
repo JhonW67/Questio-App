@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface CursoRepository extends JpaRepository<Curso, UUID> {
 
     long countByAtivoTrue();
+    List<Curso> findAllByOrderByNomeAsc();
 
     @Query("""
             select new com.questio.questio_backend.dto.CursoDashboardDTO(

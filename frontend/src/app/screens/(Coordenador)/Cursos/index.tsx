@@ -1,65 +1,70 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   View,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
   Alert,
   Image,
+  useWindowDimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-
-interface Disciplina {
-  id: string;
-  nome: string;
-  cargaHoraria: string;
-}
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { EntityPicker } from "../../../../components/select/EntityPicker";
+import { useCursos } from "../../../../hooks/useCursos";
+import type { DisciplinaPayload, SemestreOption } from "../../../../types/academic";
+import { SEMESTRE_OPTIONS } from "../../../../types/academic";
 
 export default function CriarCursos() {
-  // Estados das Informações Básicas
+  const { width } = useWindowDimensions();
+  const { createCurso, submitting } = useCursos(false);
+
   const [nomeCurso, setNomeCurso] = useState("");
   const [descricao, setDescricao] = useState("");
   const [cargaHoraria, setCargaHoraria] = useState("");
-  const [semestre, setSemestre] = useState("1º Semestre");
-  const [coordenador, setCoordenador] = useState("");
   const [vagas, setVagas] = useState("30");
-
-  // Estados para a inclusão de Disciplinas
   const [nomeDisciplina, setNomeDisciplina] = useState("");
   const [cargaDisciplina, setCargaDisciplina] = useState("");
-  const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+  const [semestreDisciplina, setSemestreDisciplina] = useState<SemestreOption>(
+    SEMESTRE_OPTIONS[0],
+  );
+  const [disciplinas, setDisciplinas] = useState<DisciplinaPayload[]>([]);
+  const [showSemestreModal, setShowSemestreModal] = useState(false);
 
-  // Função para adicionar uma disciplina na lista temporária
+  const isCompact = width < 430;
+  const formMaxWidth = useMemo(() => Math.min(width - 32, 900), [width]);
+
   const handleAdicionarDisciplina = () => {
     if (!nomeDisciplina.trim() || !cargaDisciplina.trim()) {
       Alert.alert(
         "Atenção",
-        "Preencha o nome e a carga horária da disciplina.",
+        "Preencha nome, semestre e carga horária da disciplina.",
       );
       return;
     }
 
-    const novaDisciplina: Disciplina = {
-      id: Date.now().toString(),
-      nome: nomeDisciplina,
-      cargaHoraria: cargaDisciplina,
+    const novaDisciplina: DisciplinaPayload = {
+      nome: nomeDisciplina.trim(),
+      semestre: semestreDisciplina.value,
+      cargaHoraria: Number(cargaDisciplina),
     };
 
-    setDisciplinas([...disciplinas, novaDisciplina]);
+    setDisciplinas((prev) => [...prev, novaDisciplina]);
     setNomeDisciplina("");
     setCargaDisciplina("");
+    setSemestreDisciplina(SEMESTRE_OPTIONS[0]);
   };
 
-  // Função para remover uma disciplina da lista antes de lançar
-  const handleRemoverDisciplina = (id: string) => {
-    setDisciplinas(disciplinas.filter((d) => d.id !== id));
+  const handleRemoverDisciplina = (index: number) => {
+    setDisciplinas((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  // Função final de envio do formulário
-  const handleLancarCurso = () => {
+  const handleLancarCurso = async () => {
     if (!nomeCurso.trim() || !descricao.trim()) {
       Alert.alert(
         "Erro",
@@ -68,22 +73,46 @@ export default function CriarCursos() {
       return;
     }
 
-    const cursoCompleto = {
-      nomeCurso,
-      descricao,
-      cargaHoraria,
-      semestre,
-      coordenador,
-      vagas,
-      disciplinas,
-    };
+    if (disciplinas.length === 0) {
+      Alert.alert("Erro", "Adicione pelo menos uma disciplina ao curso.");
+      return;
+    }
 
-    console.log("Dados salvos:", cursoCompleto);
-    Alert.alert("Sucesso", "Curso lançado com sucesso!");
+    try {
+      const cursoSalvo = await createCurso({
+        nome: nomeCurso.trim(),
+        descricao: descricao.trim(),
+        cargaHoraria: Number(cargaHoraria) || undefined,
+        vagas: Number(vagas) || undefined,
+        disciplinas,
+      });
+
+      setNomeCurso("");
+      setDescricao("");
+      setCargaHoraria("");
+      setVagas("30");
+      setNomeDisciplina("");
+      setCargaDisciplina("");
+      setSemestreDisciplina(SEMESTRE_OPTIONS[0]);
+      setDisciplinas([]);
+
+      Alert.alert(
+        "Sucesso",
+        `Curso "${cursoSalvo.nome}" salvo com ${cursoSalvo.disciplinas.length} disciplina(s).`,
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Erro ao salvar curso",
+        error?.message || "Não foi possível salvar o curso.",
+      );
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
@@ -91,133 +120,119 @@ export default function CriarCursos() {
             style={styles.logo}
           />
         </View>
-        <TouchableOpacity style={styles.notification}>
-          <Ionicons name="notifications" size={30} color="#5D708A" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>2</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton style={styles.notification} />
       </View>
 
       <ScrollView
         style={styles.contentArea}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { alignItems: "center", paddingHorizontal: isCompact ? 14 : 20 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.headerTitle}>Lançar Novo Curso</Text>
+        <View style={{ width: "100%", maxWidth: formMaxWidth }}>
+          <Text style={styles.headerTitle}>Lançar Novo Curso</Text>
 
-        <Text style={styles.label}>Nome do Curso</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Engenharia de Software"
-          placeholderTextColor="#3B4A61"
-          value={nomeCurso}
-          onChangeText={setNomeCurso}
-        />
+          <Text style={styles.label}>Nome do Curso</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex: Engenharia de Software"
+            placeholderTextColor="#3B4A61"
+            value={nomeCurso}
+            onChangeText={setNomeCurso}
+          />
 
-        <Text style={styles.label}>Descrição</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Descreva o objetivo e o conteúdo do curso..."
-          placeholderTextColor="#3B4A61"
-          multiline
-          numberOfLines={4}
-          value={descricao}
-          onChangeText={setDescricao}
-        />
+          <Text style={styles.label}>Descrição</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Descreva o objetivo e o conteúdo do curso..."
+            placeholderTextColor="#3B4A61"
+            multiline
+            numberOfLines={4}
+            value={descricao}
+            onChangeText={setDescricao}
+          />
 
-        {/* Linha Dupla: Carga Horária e Semestre */}
-        <View style={styles.row}>
-          <View style={styles.flexField}>
-            <Text style={styles.label}>Carga Horária</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: 80 horas"
-              placeholderTextColor="#3B4A61"
-              value={cargaHoraria}
-              onChangeText={setCargaHoraria}
-            />
+          <View
+            style={[
+              styles.row,
+              isCompact && { flexDirection: "column", gap: 0 },
+            ]}
+          >
+            <View style={styles.flexField}>
+              <Text style={styles.label}>Carga Horária do Curso</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: 3200"
+                placeholderTextColor="#3B4A61"
+                value={cargaHoraria}
+                onChangeText={(value) =>
+                  setCargaHoraria(value.replace(/[^0-9]/g, ""))
+                }
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.flexField}>
+              <Text style={styles.label}>Vagas</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="30"
+                placeholderTextColor="#3B4A61"
+                keyboardType="numeric"
+                value={vagas}
+                onChangeText={(value) => setVagas(value.replace(/[^0-9]/g, ""))}
+              />
+            </View>
           </View>
 
-          <View style={styles.flexField}>
-            <Text style={styles.label}>Semestre</Text>
-            {/* Um seletor limpo simulando o Dropdown do print */}
-            <TouchableOpacity
-              style={styles.pickerFake}
-              onPress={() => {
-                Alert.alert(
-                  "Selecionar Semestre",
-                  "Escolha o período correspondente:",
-                  [
-                    {
-                      text: "1º Semestre",
-                      onPress: () => setSemestre("1º Semestre"),
-                    },
-                    {
-                      text: "2º Semestre",
-                      onPress: () => setSemestre("2º Semestre"),
-                    },
-                    {
-                      text: "3º Semestre",
-                      onPress: () => setSemestre("3º Semestre"),
-                    },
-                  ],
-                );
-              }}
-            >
-              <Text style={styles.pickerFakeText}>{semestre}</Text>
-              <Feather name="chevron-down" size={16} color="#7C8DB5" />
-            </TouchableOpacity>
-          </View>
-        </View>
+          <Text style={[styles.sectionTitle, { marginTop: 8 }]}>
+            Disciplinas do Curso
+          </Text>
 
-        {/* Linha Dupla: Coordenador e Vagas */}
-        <View style={styles.row}>
-          <View style={styles.flexField}>
-            <Text style={styles.label}>Coordenador</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nome do coordena"
-              placeholderTextColor="#3B4A61"
-              value={coordenador}
-              onChangeText={setCoordenador}
-            />
-          </View>
+          <View
+            style={[
+              styles.row,
+              isCompact && { flexDirection: "column", gap: 0 },
+            ]}
+          >
+            <View style={styles.flexField}>
+              <Text style={styles.label}>Nome da Disciplina</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Banco de Dados"
+                placeholderTextColor="#3B4A61"
+                value={nomeDisciplina}
+                onChangeText={setNomeDisciplina}
+              />
+            </View>
 
-          <View style={styles.flexField}>
-            <Text style={styles.label}>Vagas</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="30"
-              placeholderTextColor="#3B4A61"
-              keyboardType="numeric"
-              value={vagas}
-              onChangeText={setVagas}
-            />
-          </View>
-        </View>
+            <View style={styles.flexField}>
+              <Text style={styles.label}>Semestre</Text>
+              <TouchableOpacity
+                style={styles.pickerFake}
+                activeOpacity={0.8}
+                onPress={() => setShowSemestreModal(true)}
+              >
+                <Text style={styles.pickerFakeText}>{semestreDisciplina.label}</Text>
+                <Feather name="chevron-down" size={16} color="#7C8DB5" />
+              </TouchableOpacity>
+            </View>
 
-        {/* --- SEÇÃO DE DISCIPLINAS --- */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-          Disciplinas do Curso
-        </Text>
-
-        <View style={styles.rowDisciplinas}>
-          <View style={{ flex: 1, gap: 10 }}>
-            <TextInput
-              style={styles.inputInline}
-              placeholder="Nome da disciplina"
-              placeholderTextColor="#3B4A61"
-              value={nomeDisciplina}
-              onChangeText={setNomeDisciplina}
-            />
-            <TextInput
-              style={styles.inputInline}
-              placeholder="Carga (ex: 40h)"
-              placeholderTextColor="#3B4A61"
-              value={cargaDisciplina}
-              onChangeText={setCargaDisciplina}
-            />
+            <View style={styles.flexField}>
+              <Text style={styles.label}>Carga Horária</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: 80"
+                placeholderTextColor="#3B4A61"
+                value={cargaDisciplina}
+                onChangeText={(value) =>
+                  setCargaDisciplina(value.replace(/[^0-9]/g, ""))
+                }
+                keyboardType="numeric"
+              />
+            </View>
           </View>
 
           <TouchableOpacity
@@ -225,41 +240,55 @@ export default function CriarCursos() {
             activeOpacity={0.8}
             onPress={handleAdicionarDisciplina}
           >
-            <Text style={styles.btnAdicionarText}>adicionar</Text>
+            <Text style={styles.btnAdicionarText}>Adicionar disciplina</Text>
+          </TouchableOpacity>
+
+          {disciplinas.length > 0 && (
+            <View style={styles.listaDisciplinasContainer}>
+              {disciplinas.map((item, index) => (
+                <View key={`${item.nome}-${index}`} style={styles.itemDisciplina}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={styles.itemDisciplinaNome}>{item.nome}</Text>
+                    <Text style={styles.itemDisciplinaCarga}>
+                      {item.semestre}º semestre • {item.cargaHoraria}h
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleRemoverDisciplina(index)}>
+                    <Feather name="trash-2" size={18} color="#ff4757" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.btnLancar, submitting && { opacity: 0.7 }]}
+            activeOpacity={0.8}
+            onPress={handleLancarCurso}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.btnLancarText}>Salvar Curso</Text>
+            )}
           </TouchableOpacity>
         </View>
-
-        {/* Listagem em tempo real das disciplinas adicionadas */}
-        {disciplinas.length > 0 && (
-          <View style={styles.listaDisciplinasContainer}>
-            {disciplinas.map((item) => (
-              <View key={item.id} style={styles.itemDisciplina}>
-                <View>
-                  <Text style={styles.itemDisciplinaNome}>{item.nome}</Text>
-                  <Text style={styles.itemDisciplinaCarga}>
-                    {item.cargaHoraria}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleRemoverDisciplina(item.id)}
-                >
-                  <Feather name="trash-2" size={18} color="#ff4757" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* --- BOTÃO PRINCIPAL DE SALVAR --- */}
-        <TouchableOpacity
-          style={styles.btnLancar}
-          activeOpacity={0.8}
-          onPress={handleLancarCurso}
-        >
-          <Text style={styles.btnLancarText}>Lançar Curso</Text>
-        </TouchableOpacity>
       </ScrollView>
-    </View>
+
+      <EntityPicker
+        visible={showSemestreModal}
+        title="Selecionar semestre"
+        items={SEMESTRE_OPTIONS}
+        selectedKey={String(semestreDisciplina.value)}
+        searchPlaceholder="Buscar semestre"
+        emptyText="Nenhum semestre disponível."
+        keyExtractor={(item) => String(item.value)}
+        labelExtractor={(item) => item.label}
+        onClose={() => setShowSemestreModal(false)}
+        onSelect={(item) => setSemestreDisciplina(item)}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -391,11 +420,12 @@ const styles = StyleSheet.create({
   },
   btnAdicionar: {
     backgroundColor: "#00CFFF",
-    height: 44,
+    minHeight: 44,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
+    marginBottom: 16,
   },
   btnAdicionarText: {
     color: "#050E1D",

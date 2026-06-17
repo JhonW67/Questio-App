@@ -1,82 +1,55 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   FlatList,
   ActivityIndicator,
   StatusBar,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useAuth } from "../../../../context/AuthContext";
-import { API_URL } from "../../../../services/api";
-
-interface EventoCoordenacao {
-  id: string;
-  tituloEvento: string;
-  descricaoEvento: string;
-  dataEvento: string;
-  horaEvento?: string;
-  tipo: "reuniao" | "aviso" | "comunicado" | "importante";
-  lido: boolean;
-  idProfessor: string;
-}
+import { useRouter } from "expo-router";
+import { NotificationButton } from "../../../../components/notification/NotificationButton";
+import { useEventos } from "../../../../hooks/useEventos";
 
 export default function Evento() {
-  const { user } = useAuth();
-
+  const router = useRouter();
   const [filtroAtivo, setFiltroAtivo] = useState<"Todos" | "NaoLidos">("Todos");
-  const [eventos, setEventos] = useState<EventoCoordenacao[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // Estado para o Pull to Refresh
+  const {
+    eventos,
+    loading,
+    error,
+    refresh,
+    marcarComoLido,
+  } = useEventos({ mode: "professor" });
 
-  // Função isolada de carregamento para poder ser chamada no useEffect e no Refresh
-  const carregarEventos = useCallback(async () => {
-    if (!user) return;
+  const dadosFiltrados = useMemo(() => {
+    return eventos.filter((ev) => {
+      if (filtroAtivo === "NaoLidos") return !ev.lido;
+      return true;
+    });
+  }, [eventos, filtroAtivo]);
 
-    // PRINT DE DEBUG: Abra o terminal do Metro Bundler e veja se este ID bate com o que a coordenação está enviando!
-    console.log("=== DEBUG PROFESSOR ===");
-    console.log(
-      "Buscando eventos para o ID do Professor Logado:",
-      user.idUsuario,
-    );
-    console.log(
-      "URL da Requisição:",
-      `${API_URL}/eventos/professor/${user.idUsuario}`,
-    );
-    console.log("=======================");
+  const totalNaoLidos = useMemo(
+    () => eventos.filter((ev) => !ev.lido).length,
+    [eventos],
+  );
 
-    try {
-      const response = await fetch(
-        `${API_URL}/eventos/professor/${user.idUsuario}`,
-      );
-      if (response.ok) {
-        const dadosAPI = await response.json();
-        setEventos(dadosAPI);
-      } else {
-        console.log("Resposta da API não veio OK. Status:", response.status);
-        setEventos([]);
+  async function handleOpenEvento(idEvento: string, lido: boolean) {
+    if (!lido) {
+      try {
+        await marcarComoLido(idEvento);
+      } catch (err: any) {
+        Alert.alert(
+          "Erro",
+          err?.message || "Não foi possível marcar o evento como lido.",
+        );
       }
-    } catch (error) {
-      console.log("Erro ao conectar com a API (Modo Mock ativo):", error);
-    } finally {
-      setLoading(false);
     }
-  }, [user]);
-
-  // Dispara o fetch inicial
-  useEffect(() => {
-    carregarEventos();
-  }, [carregarEventos]);
-
-  // Função disparada ao arrastar a lista para baixo
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await carregarEventos();
-    setRefreshing(false);
-  };
+  }
 
   const renderIconeStatus = (tipo: string) => {
     switch (tipo) {
@@ -107,7 +80,7 @@ export default function Evento() {
       default:
         return (
           <View style={styles.iconWrapper}>
-            <Ionicons name="notifications" size={20} color="#7C8DB5" />
+            <Ionicons name="notifications-outline" size={20} color="#7C8DB5" />
           </View>
         );
     }
@@ -120,29 +93,21 @@ export default function Evento() {
     return "transparent";
   };
 
-  const dadosFiltrados = eventos.filter((ev) => {
-    if (filtroAtivo === "NaoLidos") return !ev.lido;
-    return true;
-  });
-
-  const totalNaoLidos = eventos.filter((ev) => !ev.lido).length;
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050E1D" />
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Eventos da Coordenação</Text>
-        <TouchableOpacity style={styles.headerNotification}>
-          <Ionicons name="notifications" size={22} color="#FF4757" />
-          <View style={styles.badgeMiniContainer}>
-            <Text style={styles.badgeMiniText}>{totalNaoLidos}</Text>
-          </View>
-        </TouchableOpacity>
+        <NotificationButton
+          style={styles.headerNotification}
+          size={22}
+          color="#7C8DB5"
+        />
       </View>
 
       {/* FILTROS */}
@@ -183,7 +148,7 @@ export default function Evento() {
       </View>
 
       {/* LISTAGEM DOS EVENTOS COM PULL TO REFRESH */}
-      {loading && !refreshing ? (
+      {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#00CFFF" />
         </View>
@@ -193,11 +158,13 @@ export default function Evento() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
-          refreshing={refreshing} // Controla a animação do loading giratório de puxar
-          onRefresh={onRefresh} // Vincula a função de atualizar
+          refreshing={loading}
+          onRefresh={refresh}
           renderItem={({ item }) => (
-            <View
+            <TouchableOpacity
               style={[styles.eventCard, !item.lido && styles.eventCardUnread]}
+              activeOpacity={0.85}
+              onPress={() => handleOpenEvento(item.id, item.lido)}
             >
               <View style={styles.cardContentRow}>
                 {renderIconeStatus(item.tipo)}
@@ -211,9 +178,45 @@ export default function Evento() {
                   <View style={styles.cardFooter}>
                     <View style={styles.footerItem}>
                       <Feather name="calendar" size={12} color="#7C8DB5" />
-                      <Text style={styles.footerText}>{item.dataEvento}</Text>
+                      <Text style={styles.footerText}>
+                        {new Date(item.dataEvento).toLocaleDateString("pt-BR")}
+                      </Text>
                     </View>
+                    {item.nomeTurma ? (
+                      <View style={styles.footerItem}>
+                        <Feather name="users" size={12} color="#7C8DB5" />
+                        <Text style={styles.footerText}>{item.nomeTurma}</Text>
+                      </View>
+                    ) : null}
+                    {item.nomeDisciplina ? (
+                      <View style={styles.footerItem}>
+                        <Feather name="book-open" size={12} color="#7C8DB5" />
+                        <Text style={styles.footerText}>{item.nomeDisciplina}</Text>
+                      </View>
+                    ) : null}
+                    {item.nomeAluno ? (
+                      <View style={styles.footerItem}>
+                        <Feather name="user" size={12} color="#7C8DB5" />
+                        <Text style={styles.footerText}>{item.nomeAluno}</Text>
+                      </View>
+                    ) : null}
+                    {error ? (
+                      <View style={styles.footerItem}>
+                        <Feather name="alert-circle" size={12} color="#FF4757" />
+                        <Text style={[styles.footerText, { color: "#FF8F8F" }]}>
+                          {error}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
+                  {item.nomeProfessor ? (
+                    <View style={[styles.footerItem, { marginTop: 8 }]}>
+                      <Feather name="user-check" size={12} color="#7C8DB5" />
+                      <Text style={styles.footerText}>
+                        Enviado por {item.nomeProfessor}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={styles.rightIndicators}>
                   <View
@@ -225,7 +228,7 @@ export default function Evento() {
                   <Feather name="chevron-down" size={16} color="#7C8DB5" />
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -236,7 +239,7 @@ export default function Evento() {
                   paddingHorizontal: 20,
                 }}
               >
-                Nenhum evento agendado.{"\n"}Arraste para baixo para atualizar!
+                Nenhum evento recebido da coordenação.{"\n"}Arraste para baixo para atualizar.
               </Text>
             </View>
           }
@@ -259,20 +262,7 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 4 },
   headerTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "bold" },
-  headerNotification: { position: "relative", padding: 6 },
-  badgeMiniContainer: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    backgroundColor: "#FF4757",
-    borderRadius: 7,
-    minWidth: 14,
-    height: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 2,
-  },
-  badgeMiniText: { color: "#FFFFFF", fontSize: 9, fontWeight: "bold" },
+  headerNotification: { padding: 6 },
   filterRow: {
     flexDirection: "row",
     paddingHorizontal: 20,

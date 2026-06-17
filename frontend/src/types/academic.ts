@@ -111,6 +111,13 @@ export interface StudentTask {
   enviadoEm: string | null;
   arquivoNome: string | null;
   arquivoUrl: string | null;
+  materiais?: TaskMaterial[];
+}
+
+export interface TaskMaterial {
+  idMaterial: string;
+  arquivoNome: string;
+  arquivoUrl: string;
 }
 
 export interface PerformanceTurma {
@@ -350,6 +357,13 @@ export function normalizeStudentTask(raw: any): StudentTask {
       raw?.arquivoUrl === null || raw?.arquivoUrl === undefined
         ? null
         : String(raw.arquivoUrl),
+    materiais: Array.isArray(raw?.materiais)
+      ? raw.materiais.map((item: any) => ({
+          idMaterial: String(item?.idMaterial ?? item?.id ?? ""),
+          arquivoNome: String(item?.arquivoNome ?? item?.nome ?? ""),
+          arquivoUrl: String(item?.arquivoUrl ?? item?.url ?? ""),
+        }))
+      : [],
     categoria:
       raw?.categoria === null || raw?.categoria === undefined
         ? null

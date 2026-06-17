@@ -158,6 +158,34 @@ export async function createTask(payload: CreateTaskPayload) {
   return data;
 }
 
+export async function uploadTaskMaterials(payload: {
+  idTask: string;
+  arquivos: DocumentPickerAsset[];
+}): Promise<void> {
+  if (!payload.arquivos?.length) {
+    return;
+  }
+
+  const formData = new FormData();
+  payload.arquivos.forEach((arquivo) => {
+    if (!arquivo?.uri) {
+      return;
+    }
+
+    formData.append("arquivos", {
+      uri: arquivo.uri,
+      name: arquivo.name ?? "material",
+      type: arquivo.mimeType ?? "application/pdf",
+    } as any);
+  });
+
+  await api.post(`/tarefas/${payload.idTask}/materiais/upload`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
 export async function getStudentTasks(): Promise<StudentTask[]> {
   const { data } = await api.get("/tarefas");
   return Array.isArray(data) ? data.map(normalizeStudentTask) : [];
@@ -210,7 +238,7 @@ export function resolveApiAssetUrl(path: string): string {
 export async function openAttachmentUrl(path: string) {
   let nextUrl = path;
 
-  if (/\/tarefas\/submissoes\/.+\/arquivo-link$/i.test(path)) {
+  if (/\/tarefas\/(submissoes|materiais)\/.+\/arquivo-link$/i.test(path)) {
     const { data } = await api.get(path);
     nextUrl = String(data?.url ?? "");
   }

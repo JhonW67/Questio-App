@@ -257,6 +257,23 @@ export default function Tasks() {
               {tarefaSelecionada?.objetivo || "Sem descrição disponível."}
             </Text>
 
+            {tarefaSelecionada?.materiais?.length ? (
+              <>
+                <Text style={styles.fieldLabel}>Materiais</Text>
+                {tarefaSelecionada.materiais.map((material) => (
+                  <TouchableOpacity
+                    key={material.idMaterial}
+                    activeOpacity={0.8}
+                    onPress={() => abrirAnexo(material.arquivoUrl)}
+                  >
+                    <Text style={styles.linkText}>
+                      {material.arquivoNome}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
+
             <Text style={styles.fieldLabel}>Sua resposta</Text>
             <TextInput
               style={[

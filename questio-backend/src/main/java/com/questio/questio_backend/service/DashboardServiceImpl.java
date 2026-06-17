@@ -21,8 +21,8 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     @Transactional(readOnly = true)
     public DashboardResumoDTO obterResumoGeral() {
-        long alunos = userRepository.countByTipoUsuario(TipoUsuario.ALUNO);
-        long professores = userRepository.countByTipoUsuario(TipoUsuario.PROFESSOR);
+        long alunos = userRepository.countByTipoUsuarioIgnoreCase(TipoUsuario.ALUNO.getValor());
+        long professores = userRepository.countByTipoUsuarioIgnoreCase(TipoUsuario.PROFESSOR.getValor());
         long cursosAtivos = cursoRepository.countByAtivoTrue();
 
         return new DashboardResumoDTO(alunos, professores, cursosAtivos);

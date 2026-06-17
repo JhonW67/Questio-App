@@ -1,14 +1,17 @@
 package com.questio.questio_backend.service;
 
 import com.questio.questio_backend.dto.TaskRequestDTO;
+import com.questio.questio_backend.dto.TaskMaterialDTO;
 import com.questio.questio_backend.dto.TaskResponseDTO;
 import com.questio.questio_backend.dto.TaskSubmissionRequestDTO;
 import com.questio.questio_backend.entity.Class;
 import com.questio.questio_backend.entity.SubmitTask;
 import com.questio.questio_backend.entity.Task;
+import com.questio.questio_backend.entity.TaskMaterial;
 import com.questio.questio_backend.entity.User;
 import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.SubmitRepository;
+import com.questio.questio_backend.repository.TaskMaterialRepository;
 import com.questio.questio_backend.repository.TaskRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -32,6 +38,8 @@ public class TaskService {
     private final ClassRepository turmaRepository;
     private final GamificationService gamificationService;
     private final SubmissionStorageService submissionStorageService;
+    private final TaskMaterialStorageService taskMaterialStorageService;
+    private final TaskMaterialRepository taskMaterialRepository;
     private final TokenService tokenService;
 
     private User getUsuarioAutenticado() {
@@ -79,7 +87,8 @@ public class TaskService {
                 null,
                 null,
                 null,
-                null
+                null,
+                List.of()
         );
     }
 
@@ -164,7 +173,19 @@ public class TaskService {
                         (first, second) -> first
                 ));
 
-        return tarefaRepository.findByTurmaIn(turmas).stream()
+        List<Task> tarefas = tarefaRepository.findByTurmaIn(turmas);
+        List<UUID> tarefaIds = tarefas.stream().map(Task::getIdTask).toList();
+
+        Map<UUID, List<TaskMaterialDTO>> materiaisPorTarefa = tarefaIds.isEmpty()
+                ? Map.of()
+                : taskMaterialRepository.findByTarefaIdTaskIn(tarefaIds).stream()
+                .sorted(Comparator.comparing(TaskMaterial::getEnviadoEm, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.groupingBy(
+                        item -> item.getTarefa().getIdTask(),
+                        Collectors.mapping(this::mapMaterial, Collectors.toCollection(ArrayList::new))
+                ));
+
+        return tarefas.stream()
                 .map(t -> {
                     SubmitTask submissao = submissoesPorTarefa.get(t.getIdTask());
                     boolean isConcluida = submissao != null;
@@ -180,10 +201,161 @@ public class TaskService {
                             submissao != null ? submissao.getStatus() : null,
                             submissao != null ? submissao.getEnviadoEm() : null,
                             submissao != null ? submissao.getArquivoNome() : null,
-                            submissao != null ? buildAttachmentUrl(submissao) : null
+                            submissao != null ? buildAttachmentUrl(submissao) : null,
+                            materiaisPorTarefa.getOrDefault(t.getIdTask(), List.of())
                     );
                 })
                 .toList();
+    }
+
+    @Transactional
+    public List<TaskMaterialDTO> anexarMateriais(UUID idTarefa, List<MultipartFile> arquivos) {
+        User professor = getUsuarioAutenticado();
+        Task tarefa = tarefaRepository.findById(idTarefa)
+                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+
+        if (tarefa.getTurma() == null
+                || tarefa.getTurma().getProfessor() == null
+                || !Objects.equals(tarefa.getTurma().getProfessor().getIdUsuario(), professor.getIdUsuario())) {
+            throw new RuntimeException("Você só pode anexar materiais em tarefas das suas turmas.");
+        }
+
+        if (arquivos == null || arquivos.isEmpty()) {
+            return List.of();
+        }
+
+        List<TaskMaterialDTO> saved = new ArrayList<>();
+        for (MultipartFile arquivo : arquivos) {
+            TaskMaterialStorageService.StoredTaskMaterialFile stored = taskMaterialStorageService.store(arquivo);
+            if (stored == null) {
+                continue;
+            }
+
+            TaskMaterial material = TaskMaterial.builder()
+                    .tarefa(tarefa)
+                    .arquivoNome(stored.originalFilename())
+                    .arquivoUrl(stored.storedPath())
+                    .enviadoEm(LocalDateTime.now())
+                    .build();
+            TaskMaterial persisted = taskMaterialRepository.save(material);
+            saved.add(mapMaterial(persisted));
+        }
+
+        return saved;
+    }
+
+    public List<TaskMaterialDTO> listarMateriais(UUID idTarefa) {
+        Task tarefa = tarefaRepository.findById(idTarefa)
+                .orElseThrow(() -> new RuntimeException("Tarefa não encontrada"));
+
+        User usuario = getUsuarioAutenticado();
+        boolean isAluno = tarefa.getTurma() != null && usuario.getTurmas() != null && usuario.getTurmas().contains(tarefa.getTurma());
+        boolean isProfessorDaTurma = tarefa.getTurma() != null
+                && tarefa.getTurma().getProfessor() != null
+                && Objects.equals(tarefa.getTurma().getProfessor().getIdUsuario(), usuario.getIdUsuario());
+
+        if (!isAluno && !isProfessorDaTurma) {
+            throw new RuntimeException("Você não possui acesso a estes materiais.");
+        }
+
+        return taskMaterialRepository.findByTarefaIdTaskOrderByEnviadoEmAsc(idTarefa).stream()
+                .map(this::mapMaterial)
+                .toList();
+    }
+
+    public TaskMaterial buscarMaterialComPermissao(UUID idMaterial) {
+        User usuario = getUsuarioAutenticado();
+        TaskMaterial material = taskMaterialRepository.findById(idMaterial)
+                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+
+        Task tarefa = material.getTarefa();
+        boolean isAlunoDaTurma = tarefa != null
+                && tarefa.getTurma() != null
+                && usuario.getTurmas() != null
+                && usuario.getTurmas().contains(tarefa.getTurma());
+
+        boolean isProfessorDaTurma = tarefa != null
+                && tarefa.getTurma() != null
+                && tarefa.getTurma().getProfessor() != null
+                && Objects.equals(tarefa.getTurma().getProfessor().getIdUsuario(), usuario.getIdUsuario());
+
+        if (!isAlunoDaTurma && !isProfessorDaTurma) {
+            throw new RuntimeException("Você não possui acesso a este material.");
+        }
+
+        return material;
+    }
+
+    public java.nio.file.Path carregarArquivoMaterial(UUID idMaterial) {
+        TaskMaterial material = buscarMaterialComPermissao(idMaterial);
+        return taskMaterialStorageService.load(material.getArquivoUrl());
+    }
+
+    public java.nio.file.Path carregarArquivoMaterialPorToken(UUID idMaterial, String token) {
+        TaskMaterial material = taskMaterialRepository.findById(idMaterial)
+                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+
+        var claims = tokenService.validateTaskMaterialToken(token);
+        if (claims == null) {
+            throw new RuntimeException("Token de material inválido.");
+        }
+
+        String materialId = claims.get("materialId", String.class);
+        String userId = claims.get("userId", String.class);
+
+        if (!idMaterial.toString().equals(materialId)) {
+            throw new RuntimeException("Token de material inválido.");
+        }
+
+        Task tarefa = material.getTarefa();
+
+        boolean isAlunoDaTurma = tarefa != null
+                && tarefa.getTurma() != null
+                && tarefa.getTurma().getAlunos() != null
+                && tarefa.getTurma().getAlunos().stream().anyMatch(a ->
+                a != null && a.getIdUsuario() != null && a.getIdUsuario().toString().equals(userId)
+        );
+
+        boolean isProfessorDaTurma = tarefa != null
+                && tarefa.getTurma() != null
+                && tarefa.getTurma().getProfessor() != null
+                && tarefa.getTurma().getProfessor().getIdUsuario() != null
+                && tarefa.getTurma().getProfessor().getIdUsuario().toString().equals(userId);
+
+        if (!isAlunoDaTurma && !isProfessorDaTurma) {
+            throw new RuntimeException("Token de material inválido.");
+        }
+
+        return taskMaterialStorageService.load(material.getArquivoUrl());
+    }
+
+    public TaskMaterial buscarMaterialPorToken(UUID idMaterial, String token) {
+        carregarArquivoMaterialPorToken(idMaterial, token);
+        return taskMaterialRepository.findById(idMaterial)
+                .orElseThrow(() -> new RuntimeException("Material não encontrado"));
+    }
+
+    public String gerarLinkTemporarioDeMaterial(TaskMaterial material, UUID idUsuario) {
+        String token = tokenService.generateTaskMaterialToken(material.getIdMaterial(), idUsuario, 5 * 60 * 1000L);
+        return "/api/tarefas/materiais/" + material.getIdMaterial() + "/arquivo/public?token=" + token;
+    }
+
+    public String gerarLinkTemporarioDeMaterialAutenticado(UUID idMaterial) {
+        User usuario = getUsuarioAutenticado();
+        TaskMaterial material = buscarMaterialComPermissao(idMaterial);
+        return gerarLinkTemporarioDeMaterial(material, usuario.getIdUsuario());
+    }
+
+    private TaskMaterialDTO mapMaterial(TaskMaterial material) {
+        return new TaskMaterialDTO(
+                material.getIdMaterial(),
+                material.getArquivoNome(),
+                buildMaterialUrl(material)
+        );
+    }
+
+    private String buildMaterialUrl(TaskMaterial material) {
+        return "/api/tarefas/materiais/" + material.getIdMaterial() + "/arquivo-link";
     }
 
     public SubmitTask buscarSubmissaoComPermissao(UUID idSubmissao) {
@@ -266,6 +438,6 @@ public class TaskService {
     }
 
     private String buildAttachmentUrl(SubmitTask submissao) {
-        return "/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo-link";
+        return "/api/tarefas/submissoes/" + submissao.getIdSubmit() + "/arquivo-link";
     }
 }

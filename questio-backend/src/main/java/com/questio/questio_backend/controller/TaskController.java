@@ -1,9 +1,11 @@
 package com.questio.questio_backend.controller;
 
 import com.questio.questio_backend.dto.TaskRequestDTO;
+import com.questio.questio_backend.dto.TaskMaterialDTO;
 import com.questio.questio_backend.dto.TaskResponseDTO;
 import com.questio.questio_backend.dto.TaskSubmissionRequestDTO;
 import com.questio.questio_backend.entity.SubmitTask;
+import com.questio.questio_backend.entity.TaskMaterial;
 import com.questio.questio_backend.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -115,6 +117,50 @@ public class TaskController {
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()
                                 .filename(submissao.getArquivoNome() != null ? submissao.getArquivoNome() : resource.getFilename())
+                                .build()
+                                .toString()
+                )
+                .body(resource);
+    }
+
+    @PostMapping(path = "/{id}/materiais/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PROFESSOR')")
+    public ResponseEntity<List<TaskMaterialDTO>> anexarMateriais(
+            @PathVariable UUID id,
+            @RequestPart(name = "arquivos", required = false) List<MultipartFile> arquivos
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(tarefaService.anexarMateriais(id, arquivos));
+    }
+
+    @GetMapping("/{id}/materiais")
+    @PreAuthorize("hasAnyRole('ALUNO', 'PROFESSOR')")
+    public ResponseEntity<List<TaskMaterialDTO>> listarMateriais(@PathVariable UUID id) {
+        return ResponseEntity.ok(tarefaService.listarMateriais(id));
+    }
+
+    @GetMapping("/materiais/{idMaterial}/arquivo-link")
+    @PreAuthorize("hasAnyRole('ALUNO', 'PROFESSOR')")
+    public ResponseEntity<Map<String, String>> gerarLinkTemporarioDeMaterial(@PathVariable UUID idMaterial) {
+        return ResponseEntity.ok(Map.of("url", tarefaService.gerarLinkTemporarioDeMaterialAutenticado(idMaterial)));
+    }
+
+    @GetMapping("/materiais/{idMaterial}/arquivo/public")
+    public ResponseEntity<FileSystemResource> baixarArquivoMaterialPublico(
+            @PathVariable UUID idMaterial,
+            @RequestParam("token") String token
+    ) {
+        TaskMaterial material = tarefaService.buscarMaterialPorToken(idMaterial, token);
+        var path = tarefaService.carregarArquivoMaterialPorToken(idMaterial, token);
+        FileSystemResource resource = new FileSystemResource(path);
+        MediaType mediaType = MediaTypeFactory.getMediaType(resource)
+                .orElse(MediaType.APPLICATION_OCTET_STREAM);
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(material.getArquivoNome() != null ? material.getArquivoNome() : resource.getFilename())
                                 .build()
                                 .toString()
                 )

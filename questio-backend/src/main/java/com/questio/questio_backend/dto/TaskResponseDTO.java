@@ -1,6 +1,7 @@
 package com.questio.questio_backend.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record TaskResponseDTO(
@@ -14,5 +15,6 @@ public record TaskResponseDTO(
         String statusSubmissao,
         LocalDateTime enviadoEm,
         String arquivoNome,
-        String arquivoUrl
+        String arquivoUrl,
+        List<TaskMaterialDTO> materiais
 ) {}

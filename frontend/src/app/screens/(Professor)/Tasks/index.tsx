@@ -127,6 +127,7 @@ export default function CreateTask() {
         prazo: prazoISO,
         pontos: Number.isNaN(pontosNum) ? 0 : pontosNum,
         idTurma: turmaSelecionada.idTurma,
+        materiais: arquivos,
       });
 
       Alert.alert("Sucesso", "Tarefa criada com sucesso!", [

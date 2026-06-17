@@ -12,6 +12,7 @@ import com.questio.questio_backend.repository.ClassRepository;
 import com.questio.questio_backend.repository.CursoRepository;
 import com.questio.questio_backend.repository.DisciplinaRepository;
 import com.questio.questio_backend.repository.SubmitRepository;
+import com.questio.questio_backend.repository.TaskMaterialRepository;
 import com.questio.questio_backend.repository.TaskRepository;
 import com.questio.questio_backend.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -52,6 +53,9 @@ class TaskServiceTest {
 
     @Autowired
     private SubmitRepository submitRepository;
+
+    @Autowired
+    private TaskMaterialRepository taskMaterialRepository;
 
     @AfterEach
     void clearSecurityContext() {
@@ -129,6 +133,48 @@ class TaskServiceTest {
         assertThat(submissao.getTarefa().getIdTask()).isEqualTo(tarefa.getIdTask());
         assertThat(submissao.getArquivoNome()).isEqualTo("atividade.pdf");
         assertThat(submissao.getArquivoUrl()).isNotBlank();
+    }
+
+    @Test
+    void anexarMateriais_quandoProfessorDaTurma_salvaMaterialEAlunoEnxergaNoListing() {
+        User professor = salvarProfessor("professor.material");
+        User aluno = salvarAluno("aluno.material");
+        Class turma = salvarTurmaComAluno("Turma Materiais", professor, aluno);
+
+        autenticarComo(professor);
+        var tarefaCriada = taskService.criarTarefa(new TaskRequestDTO(
+                "Atividade com materiais",
+                "Leia os PDFs e responda",
+                LocalDateTime.now().plusDays(2),
+                10,
+                turma.getIdClass()
+        ));
+
+        MockMultipartFile material = new MockMultipartFile(
+                "arquivos",
+                "material.pdf",
+                "application/pdf",
+                "conteudo-material".getBytes()
+        );
+
+        var materiais = taskService.anexarMateriais(tarefaCriada.id(), java.util.List.of(material));
+
+        assertThat(materiais).hasSize(1);
+        assertThat(materiais.getFirst().arquivoNome()).isEqualTo("material.pdf");
+        assertThat(materiais.getFirst().arquivoUrl()).contains("/api/tarefas/materiais/");
+
+        assertThat(taskMaterialRepository.findByTarefaIdTaskOrderByEnviadoEmAsc(tarefaCriada.id())).hasSize(1);
+
+        autenticarComo(aluno);
+        var tarefas = taskService.listarTarefasDoAluno();
+        var tarefaAluno = tarefas.stream()
+                .filter(t -> t.id().equals(tarefaCriada.id()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(tarefaAluno.materiais()).isNotNull();
+        assertThat(tarefaAluno.materiais()).hasSize(1);
+        assertThat(tarefaAluno.materiais().getFirst().arquivoNome()).isEqualTo("material.pdf");
     }
 
     private User salvarProfessor(String prefixoEmail) {

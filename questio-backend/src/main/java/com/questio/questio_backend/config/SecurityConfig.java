@@ -35,7 +35,8 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/academic/cursos",
                                 "/api/academic/cursos/*/disciplinas",
-                                "/api/tarefas/submissoes/*/arquivo/public"
+                                "/api/tarefas/submissoes/*/arquivo/public",
+                                "/api/tarefas/materiais/*/arquivo/public"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",

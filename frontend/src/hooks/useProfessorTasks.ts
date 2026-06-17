@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { createTask } from "../services/api";
+import type { DocumentPickerAsset } from "expo-document-picker";
+import { createTask, uploadTaskMaterials } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTurmas } from "./useTurmas";
 
@@ -15,6 +16,7 @@ interface CreateProfessorTaskPayload {
   prazo: string;
   pontos: number;
   idTurma: string;
+  materiais?: DocumentPickerAsset[];
 }
 
 export function useProfessorTasks() {
@@ -72,7 +74,16 @@ export function useProfessorTasks() {
   const submitTask = useCallback(async (payload: CreateProfessorTaskPayload) => {
     try {
       setSubmitting(true);
-      return await createTask(payload);
+      const created = await createTask(payload);
+
+      if (payload.materiais?.length && created?.id) {
+        await uploadTaskMaterials({
+          idTask: String(created.id),
+          arquivos: payload.materiais,
+        });
+      }
+
+      return created;
     } finally {
       setSubmitting(false);
     }
